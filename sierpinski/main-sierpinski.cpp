@@ -36,7 +36,7 @@ int main() {
     
 	//graphing commands go below here
     ct::Point myPoints[] = {{-200, -100}, {0, 200}, {200, -100}};
-    sierpinski(myPoints[0], myPoints[1], myPoints[2], 2, rt);
+    sierpinski(myPoints[0], myPoints[1], myPoints[2], 3, rt);
     
     scr.exitonclick();  //exists graphics screen
     return 0;
