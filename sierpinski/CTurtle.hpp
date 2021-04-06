@@ -1,36 +1,502 @@
-//MIT License
+// MIT License
+// 
+// Copyright (c) 2021 Jesse W. Walker
 //
-//Copyright (c) 2019 Jesse W. Walker
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
 //
-//Permission is hereby granted, free of charge, to any person obtaining a copy
-//of this software and associated documentation files (the "Software"), to deal
-//in the Software without restriction, including without limitation the rights
-//to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//copies of the Software, and to permit persons to whom the Software is
-//furnished to do so, subject to the following conditions:
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
 //
-//The above copyright notice and this permission notice shall be included in all
-//copies or substantial portions of the Software.
-//
-//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-//SOFTWARE.
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
-/*
- * File:    CTurtle.hpp
- * Project: C-Turtle
- * Created on September 18, 2019, 10:44 AM
- */
+/**
+    :::::::: ::::::::::: :::    ::: ::::::::: ::::::::::: :::        ::::::::::
+   :+:    :+:    :+:     :+:    :+: :+:    :+:    :+:     :+:        :+:
+   +:+           +:+     +:+    +:+ +:+    +:+    +:+     +:+        +:+
+   +#+           +#+     +#+    +:+ +#++:++#:     +#+     +#+        +#++:++#
+   +#+           +#+     +#+    +#+ +#+    +#+    +#+     +#+        +#+
+   #+#    #+#    #+#     #+#    #+# #+#    #+#    #+#     #+#        #+#
+    ########     ###      ########  ###    ###    ###     ########## ########## 
+   =================================v1.0.2====================================>
+   
+   GitHub: https://github.com/walkerje/C-Turtle
+   Documentation: http://walkerje.me/C-Turtle/docs/html/annotated.html
+   Semantic Versioning (see https://semver.org/)
+   Changelog (see https://keepachangelog.com/)
+   
+   Patch                                v1.0.2
+   -----------------2/25/21-------------------
+   --- Added
+   ~ Implementation for turtle's goTo function that got erroneously removed.
+   
+   --- Changed
+   ~ Change isValid for BitmapFont class to consider the size of the glyph vector.
+   
+   Patch                                v1.0.1
+   -----------------2/15/21-------------------
+   --- Added
+   ~ Added new constructor to Transform class to construct with an position and a rotation.
+   
+   --- Changed
+   ~ Preprocessor check for M_PI under MSVC was malformed; replaced ifndef with ifdef
+   ~ Implemented polygon line filling for drawLine function, reducing complexity to O(1) from O(n).
+   ~ Removed 100-pixel line width maximum from drawLine function.
+   
+   Release                              v1.0.0
+   -----------------2/13/21-------------------
+   --- Added
+   ~ Simplistic Bitmap Font Support
+   ~ Default Bitmap Font, Proggy Clean (see https://proggyfonts.net)
+   ~ Support for more dynamic font rendering, specifically allowing control over orientation, scale, and alignment.
+   ~ "face" function to Turtles to orient the turtle towards another Point.
+   ~ "addfont" and "font" function to the TurtleScreen class to register and retrieve user-provided Bitmap Fonts.
+   ~ Appended version number to default title constructors in the TurtleScreen class.
+   ~ Version numbering defines CTURTLE_VERSION_(MAJOR|MINOR|PATCH)  
+   
+   --- Changed
+   ~ Moved turtle function implementations to the inside of the Turtle Class
+   ~ Moved default shape map definition to AbstractTurtleScreen rather than individual screens.
+   ~ Refactored the internal turtle function "pushGeom" to "pushGeometry"
+   ~ Organized include statements, and the top of the file in general.
+   ~ Updated Documentation
+   ~ Changed ivec2 implementation to use a union between an anonymous structure and an 2-wide array of integers
+   
+   --- Removed
+   ~ N/A
+   
+   Release                              v0.2.X
+   ------------------4/23/20------------------
+   ~ See GitHub commit histories 744dd6d through e7e17de
+   
+   Release                              v0.1.X
+   ------------------4/23/20------------------
+   ~ See GitHub commit histories a93dc4d through 744dd6d
+   
+   Release                              v0.0.X
+   -------------------9/7/19------------------
+   ~ See GitHub commit histories 12888e7 through a93dc4d
+**/
 
 #pragma once
 
+#define CTURTLE_VERSION_MAJOR "1"
+#define CTURTLE_VERSION_MINOR "0"
+#define CTURTLE_VERSION_PATCH "2"
+#define CTURTLE_VERSION "v" CTURTLE_VERSION_MAJOR "." CTURTLE_VERSION_MINOR "." CTURTLE_VERSION_PATCH
+
+#ifdef CTURTLE_HEADLESS
+/*Include GIF utility when compiling headless mode.*/
+
+/* public domain, Simple, Minimalistic GIF writer - http://jonolick.com
+ *
+ * Quick Notes:
+ * 	Supports only 4 component input, alpha is currently ignored. (RGBX)
+ *
+ * Latest revisions:
+ * 	1.00 (2015-11-03) initial release
+ *
+ * Basic usage:
+ *	char *frame = new char[128*128*4]; // 4 component. RGBX format, where X is unused
+ *	jo_gif_t gif = jo_gif_start("foo.gif", 128, 128, 0, 32);
+ *	jo_gif_frame(&gif, frame, 4, false); // frame 1
+ *	jo_gif_frame(&gif, frame, 4, false); // frame 2
+ *	jo_gif_frame(&gif, frame, 4, false); // frame 3, ...
+ *	jo_gif_end(&gif);
+ * */
+
+#ifndef JO_INCLUDE_GIF_H
+#define JO_INCLUDE_GIF_H
+
+#include <stdio.h>
+
+//Header edited to inline all GIF functionality to avoid re-definitions across compilation units
+//otherwise, left the same.
+
+typedef struct {
+    FILE *fp;
+    unsigned char palette[0x300];
+    short width, height, repeat;
+    int numColors, palSize;
+    int frame;
+} jo_gif_t;
+
+// width/height	| the same for every frame
+// repeat       | 0 = loop forever, 1 = loop once, etc...
+// palSize		| must be power of 2 - 1. so, 255 not 256.
+inline jo_gif_t jo_gif_start(const char *filename, short width, short height, short repeat, int palSize);
+
+// gif			| the state (returned from jo_gif_start)
+// rgba         | the pixels
+// delayCsec    | amount of time in between frames (in centiseconds)
+// localPalette | true if you want a unique palette generated for this frame (does not effect future frames)
+inline void jo_gif_frame(jo_gif_t *gif, unsigned char *rgba, short delayCsec, bool localPalette);
+
+// gif          | the state (returned from jo_gif_start)
+inline void jo_gif_end(jo_gif_t *gif);
+
+#if defined(_MSC_VER) && _MSC_VER >= 0x1400
+#define _CRT_SECURE_NO_WARNINGS // suppress warnings about fopen()
+#endif
+
+#include <stdlib.h>
+#include <memory.h>
+#include <math.h>
+
+// Based on NeuQuant algorithm
+inline void jo_gif_quantize(unsigned char *rgba, int rgbaSize, int sample, unsigned char *map, int numColors) {
+    // defs for freq and bias
+    const int intbiasshift = 16; /* bias for fractions */
+    const int intbias = (((int) 1) << intbiasshift);
+    const int gammashift = 10; /* gamma = 1024 */
+    const int betashift = 10;
+    const int beta = (intbias >> betashift); /* beta = 1/1024 */
+    const int betagamma = (intbias << (gammashift - betashift));
+
+    // defs for decreasing radius factor
+    const int radiusbiasshift = 6; /* at 32.0 biased by 6 bits */
+    const int radiusbias = (((int) 1) << radiusbiasshift);
+    const int radiusdec = 30; /* factor of 1/30 each cycle */
+
+    // defs for decreasing alpha factor
+    const int alphabiasshift = 10; /* alpha starts at 1.0 */
+    const int initalpha = (((int) 1) << alphabiasshift);
+
+    // radbias and alpharadbias used for radpower calculation
+    const int radbiasshift = 8;
+    const int radbias = (((int) 1) << radbiasshift);
+    const int alpharadbshift = (alphabiasshift + radbiasshift);
+    const int alpharadbias = (((int) 1) << alpharadbshift);
+
+    sample = sample < 1 ? 1 : sample > 30 ? 30 : sample;
+    int network[256][3];
+    int bias[256] = {}, freq[256];
+    for(int i = 0; i < numColors; ++i) {
+        // Put nurons evenly through the luminance spectrum.
+        network[i][0] = network[i][1] = network[i][2] = (i << 12) / numColors;
+        freq[i] = intbias / numColors;
+    }
+    // Learn
+    {
+        const int primes[5] = {499, 491, 487, 503};
+        int step = 4;
+        for(int i = 0; i < 4; ++i) {
+            if(rgbaSize > primes[i] * 4 && (rgbaSize % primes[i])) { // TODO/Error? primes[i]*4?
+                step = primes[i] * 4;
+            }
+        }
+        sample = step == 4 ? 1 : sample;
+
+        int alphadec = 30 + ((sample - 1) / 3);
+        int samplepixels = rgbaSize / (4 * sample);
+        int delta = samplepixels / 100;
+        int alpha = initalpha;
+        delta = delta == 0 ? 1 : delta;
+
+        int radius = (numColors >> 3) * radiusbias;
+        int rad = radius >> radiusbiasshift;
+        rad = rad <= 1 ? 0 : rad;
+        int radSq = rad*rad;
+        int radpower[32];
+        for (int i = 0; i < rad; i++) {
+            radpower[i] = alpha * (((radSq - i * i) * radbias) / radSq);
+        }
+
+        // Randomly walk through the pixels and relax neurons to the "optimal" target.
+        for(int i = 0, pix = 0; i < samplepixels;) {
+            int r = rgba[pix + 0] << 4;
+            int g = rgba[pix + 1] << 4;
+            int b = rgba[pix + 2] << 4;
+            int j = -1;
+            {
+                // finds closest neuron (min dist) and updates freq
+                // finds best neuron (min dist-bias) and returns position
+                // for frequently chosen neurons, freq[k] is high and bias[k] is negative
+                // bias[k] = gamma*((1/numColors)-freq[k])
+
+                int bestd = 0x7FFFFFFF, bestbiasd = 0x7FFFFFFF, bestpos = -1;
+                for (int k = 0; k < numColors; k++) {
+                    int *n = network[k];
+                    int dist = abs(n[0] - r) + abs(n[1] - g) + abs(n[2] - b);
+                    if (dist < bestd) {
+                        bestd = dist;
+                        bestpos = k;
+                    }
+                    int biasdist = dist - ((bias[k]) >> (intbiasshift - 4));
+                    if (biasdist < bestbiasd) {
+                        bestbiasd = biasdist;
+                        j = k;
+                    }
+                    int betafreq = freq[k] >> betashift;
+                    freq[k] -= betafreq;
+                    bias[k] += betafreq << gammashift;
+                }
+                freq[bestpos] += beta;
+                bias[bestpos] -= betagamma;
+            }
+
+            // Move neuron j towards biased (b,g,r) by factor alpha
+            network[j][0] -= (network[j][0] - r) * alpha / initalpha;
+            network[j][1] -= (network[j][1] - g) * alpha / initalpha;
+            network[j][2] -= (network[j][2] - b) * alpha / initalpha;
+            if (rad != 0) {
+                // Move adjacent neurons by precomputed alpha*(1-((i-j)^2/[r]^2)) in radpower[|i-j|]
+                int lo = j - rad;
+                lo = lo < -1 ? -1 : lo;
+                int hi = j + rad;
+                hi = hi > numColors ? numColors : hi;
+                for(int jj = j+1, m=1; jj < hi; ++jj) {
+                    int a = radpower[m++];
+                    network[jj][0] -= (network[jj][0] - r) * a / alpharadbias;
+                    network[jj][1] -= (network[jj][1] - g) * a / alpharadbias;
+                    network[jj][2] -= (network[jj][2] - b) * a / alpharadbias;
+                }
+                for(int k = j-1, m=1; k > lo; --k) {
+                    int a = radpower[m++];
+                    network[k][0] -= (network[k][0] - r) * a / alpharadbias;
+                    network[k][1] -= (network[k][1] - g) * a / alpharadbias;
+                    network[k][2] -= (network[k][2] - b) * a / alpharadbias;
+                }
+            }
+
+            pix += step;
+            pix = pix >= rgbaSize ? pix - rgbaSize : pix;
+
+            // every 1% of the image, move less over the following iterations.
+            if(++i % delta == 0) {
+                alpha -= alpha / alphadec;
+                radius -= radius / radiusdec;
+                rad = radius >> radiusbiasshift;
+                rad = rad <= 1 ? 0 : rad;
+                radSq = rad*rad;
+                for (j = 0; j < rad; j++) {
+                    radpower[j] = alpha * ((radSq - j * j) * radbias / radSq);
+                }
+            }
+        }
+    }
+    // Unbias network to give byte values 0..255
+    for (int i = 0; i < numColors; i++) {
+        map[i*3+0] = network[i][0] >>= 4;
+        map[i*3+1] = network[i][1] >>= 4;
+        map[i*3+2] = network[i][2] >>= 4;
+    }
+}
+
+typedef struct {
+    FILE *fp;
+    int numBits;
+    unsigned char buf[256];
+    unsigned char idx;
+    unsigned tmp;
+    int outBits;
+    int curBits;
+} jo_gif_lzw_t;
+
+inline void jo_gif_lzw_write(jo_gif_lzw_t *s, int code) {
+    s->outBits |= code << s->curBits;
+    s->curBits += s->numBits;
+    while(s->curBits >= 8) {
+        s->buf[s->idx++] = s->outBits & 255;
+        s->outBits >>= 8;
+        s->curBits -= 8;
+        if (s->idx >= 255) {
+            putc(s->idx, s->fp);
+            fwrite(s->buf, s->idx, 1, s->fp);
+            s->idx = 0;
+        }
+    }
+}
+
+inline void jo_gif_lzw_encode(unsigned char *in, int len, FILE *fp) {
+    jo_gif_lzw_t state = {fp, 9};
+    int maxcode = 511;
+
+    // Note: 30k stack space for dictionary =|
+    const int hashSize = 5003;
+    short codetab[hashSize];
+    int hashTbl[hashSize];
+    memset(hashTbl, 0xFF, sizeof(hashTbl));
+
+    jo_gif_lzw_write(&state, 0x100);
+
+    int free_ent = 0x102;
+    int ent = *in++;
+    CONTINUE:
+    while (--len) {
+        int c = *in++;
+        int fcode = (c << 12) + ent;
+        int key = (c << 4) ^ ent; // xor hashing
+        while(hashTbl[key] >= 0) {
+            if(hashTbl[key] == fcode) {
+                ent = codetab[key];
+                goto CONTINUE;
+            }
+            ++key;
+            key = key >= hashSize ? key - hashSize : key;
+        }
+        jo_gif_lzw_write(&state, ent);
+        ent = c;
+        if(free_ent < 4096) {
+            if(free_ent > maxcode) {
+                ++state.numBits;
+                if(state.numBits == 12) {
+                    maxcode = 4096;
+                } else {
+                    maxcode = (1<<state.numBits)-1;
+                }
+            }
+            codetab[key] = free_ent++;
+            hashTbl[key] = fcode;
+        } else {
+            memset(hashTbl, 0xFF, sizeof(hashTbl));
+            free_ent = 0x102;
+            jo_gif_lzw_write(&state, 0x100);
+            state.numBits = 9;
+            maxcode = 511;
+        }
+    }
+    jo_gif_lzw_write(&state, ent);
+    jo_gif_lzw_write(&state, 0x101);
+    jo_gif_lzw_write(&state, 0);
+    if(state.idx) {
+        putc(state.idx, fp);
+        fwrite(state.buf, state.idx, 1, fp);
+    }
+}
+
+inline int jo_gif_clamp(int a, int b, int c) { return a < b ? b : a > c ? c : a; }
+
+jo_gif_t jo_gif_start(const char *filename, short width, short height, short repeat, int numColors) {
+    numColors = numColors > 255 ? 255 : numColors < 2 ? 2 : numColors;
+    jo_gif_t gif = {};
+    gif.width = width;
+    gif.height = height;
+    gif.repeat = repeat;
+    gif.numColors = numColors;
+    gif.palSize = log2(numColors);
+
+    gif.fp = fopen(filename, "wb");
+    if(!gif.fp) {
+        printf("Error: Could not WriteGif to %s\n", filename);
+        return gif;
+    }
+
+    fwrite("GIF89a", 6, 1, gif.fp);
+    // Logical Screen Descriptor
+    fwrite(&gif.width, 2, 1, gif.fp);
+    fwrite(&gif.height, 2, 1, gif.fp);
+    putc(0xF0 | gif.palSize, gif.fp);
+    fwrite("\x00\x00", 2, 1, gif.fp); // bg color index (unused), aspect ratio
+    return gif;
+}
+
+inline void jo_gif_frame(jo_gif_t *gif, unsigned char * rgba, short delayCsec, bool localPalette) {
+    if(!gif->fp) {
+        return;
+    }
+    short width = gif->width;
+    short height = gif->height;
+    int size = width * height;
+
+    unsigned char localPalTbl[0x300];
+    unsigned char *palette = gif->frame == 0 || !localPalette ? gif->palette : localPalTbl;
+    if(gif->frame == 0 || localPalette) {
+        jo_gif_quantize(rgba, size*4, 1, palette, gif->numColors);
+    }
+
+    unsigned char *indexedPixels = (unsigned char *)malloc(size);
+    {
+        unsigned char *ditheredPixels = (unsigned char*)malloc(size*4);
+        memcpy(ditheredPixels, rgba, size*4);
+        for(int k = 0; k < size*4; k+=4) {
+            int rgb[3] = { ditheredPixels[k+0], ditheredPixels[k+1], ditheredPixels[k+2] };
+            int bestd = 0x7FFFFFFF, best = -1;
+            // TODO: exhaustive search. do something better.
+            for(int i = 0; i < gif->numColors; ++i) {
+                int bb = palette[i*3+0]-rgb[0];
+                int gg = palette[i*3+1]-rgb[1];
+                int rr = palette[i*3+2]-rgb[2];
+                int d = bb*bb + gg*gg + rr*rr;
+                if(d < bestd) {
+                    bestd = d;
+                    best = i;
+                }
+            }
+            indexedPixels[k/4] = best;
+            int diff[3] = { ditheredPixels[k+0] - palette[indexedPixels[k/4]*3+0], ditheredPixels[k+1] - palette[indexedPixels[k/4]*3+1], ditheredPixels[k+2] - palette[indexedPixels[k/4]*3+2] };
+            // Floyd-Steinberg Error Diffusion
+            // TODO: Use something better -- http://caca.zoy.org/study/part3.html
+            if(k+4 < size*4) {
+                ditheredPixels[k+4+0] = (unsigned char)jo_gif_clamp(ditheredPixels[k+4+0]+(diff[0]*7/16), 0, 255);
+                ditheredPixels[k+4+1] = (unsigned char)jo_gif_clamp(ditheredPixels[k+4+1]+(diff[1]*7/16), 0, 255);
+                ditheredPixels[k+4+2] = (unsigned char)jo_gif_clamp(ditheredPixels[k+4+2]+(diff[2]*7/16), 0, 255);
+            }
+            if(k+width*4+4 < size*4) {
+                for(int i = 0; i < 3; ++i) {
+                    ditheredPixels[k-4+width*4+i] = (unsigned char)jo_gif_clamp(ditheredPixels[k-4+width*4+i]+(diff[i]*3/16), 0, 255);
+                    ditheredPixels[k+width*4+i] = (unsigned char)jo_gif_clamp(ditheredPixels[k+width*4+i]+(diff[i]*5/16), 0, 255);
+                    ditheredPixels[k+width*4+4+i] = (unsigned char)jo_gif_clamp(ditheredPixels[k+width*4+4+i]+(diff[i]*1/16), 0, 255);
+                }
+            }
+        }
+        free(ditheredPixels);
+    }
+    if(gif->frame == 0) {
+        // Global Color Table
+        fwrite(palette, 3*(1<<(gif->palSize+1)), 1, gif->fp);
+        if(gif->repeat >= 0) {
+            // Netscape Extension
+            fwrite("\x21\xff\x0bNETSCAPE2.0\x03\x01", 16, 1, gif->fp);
+            fwrite(&gif->repeat, 2, 1, gif->fp); // loop count (extra iterations, 0=repeat forever)
+            putc(0, gif->fp); // block terminator
+        }
+    }
+    // Graphic Control Extension
+    fwrite("\x21\xf9\x04\x00", 4, 1, gif->fp);
+    fwrite(&delayCsec, 2, 1, gif->fp); // delayCsec x 1/100 sec
+    fwrite("\x00\x00", 2, 1, gif->fp); // transparent color index (first byte), currently unused
+    // Image Descriptor
+    fwrite("\x2c\x00\x00\x00\x00", 5, 1, gif->fp); // header, x,y
+    fwrite(&width, 2, 1, gif->fp);
+    fwrite(&height, 2, 1, gif->fp);
+    if (gif->frame == 0 || !localPalette) {
+        putc(0, gif->fp);
+    } else {
+        putc(0x80|gif->palSize, gif->fp );
+        fwrite(palette, 3*(1<<(gif->palSize+1)), 1, gif->fp);
+    }
+    putc(8, gif->fp); // block terminator
+    jo_gif_lzw_encode(indexedPixels, size, gif->fp);
+    putc(0, gif->fp); // block terminator
+    ++gif->frame;
+    free(indexedPixels);
+}
+
+inline void jo_gif_end(jo_gif_t *gif) {
+    if(!gif->fp) {
+        return;
+    }
+    putc(0x3b, gif->fp); // gif trailer
+    fclose(gif->fp);
+}
+
+#endif /*JO_INCLUDE_GIF_H*/
+#endif /*CTURTLE_HEADLESS*/
+
 //Automatic linking when operating under MSVC
 //If linking errors occur when compiling on Non-MSVC,
-//Make sure you link X11 and PThread when using Unix-Like environments.
+//Make sure you link X11 and PThread when using Unix-Like environments, when NOT using headless mode.
 #ifndef CTURTLE_MSVC_NO_AUTOLINK
 #ifdef _MSC_VER
 /*Automatically link to the necessary windows libraries while under MSVC.*/
@@ -41,38 +507,119 @@
 
 //MSVC 2017 doesn't seem to like defining M_PI. We define it ourselves
 //when compiling under VisualC++.
-#ifndef _MSC_VER
-#include <cmath>//for M_PI
-#else
+#ifdef _MSC_VER
 #ifndef M_PI
 #define M_PI 3.14159265358979323846264338327950288
 #endif
 #endif
 
+//When using headless, simply pre-define CTURTLE_CONFIG_HEADLESS.
+//This disables the InteractiveTurtleScreen.
+//GIF utility is included at the top of the file when under headless mode.
+
+#ifdef CTURTLE_HEADLESS
+//Optional define to disable HTML Base64 Image output
+    //#define CTURTLE_HEADLESS_NO_HTML
+
+    //Disable CImg Display
+    #define cimg_display 0
+
+    //Define default width and height.
+    #ifndef CTURTLE_HEADLESS_WIDTH
+        #define CTURTLE_HEADLESS_WIDTH 400
+    #endif
+
+    #ifndef CTURTLE_HEADLESS_HEIGHT
+        #define CTURTLE_HEADLESS_HEIGHT 300
+    #endif
+
+    #ifndef CTURTLE_HEADLESS_SAVEDIR
+        #define CTURTLE_HEADLESS_SAVEDIR "./cturtle.gif"
+    #endif
+#endif
+
+#ifdef _MSC_VER
+//Disable MSVC warnings for CImg. Irrelevant to project.
+#include <CodeAnalysis/Warnings.h>
+#pragma warning(push, 0)
+#pragma warning (disable : ALL_CODE_ANALYSIS_WARNINGS)
 #include "CImg.h"
-
-//For specific integer types, maps, strings, etc.
-#include <unordered_map>
-#include <string>
-#include <cstdint>
-
-//Used for random number generation.
-#include <chrono>
-#include <random>
+#pragma warning(pop)
+#else
+#include "CImg.h"
+#endif
 
 #include <memory>       //For smart pointers.
-#include <mutex>        //Mutex object for event thread synchronization.
+#include <list>         //For the ever-useful list data structure.
+#include <unordered_map>//For named color and keys.
+#include <chrono>       //For time management for movement animations and callbacks.
+#include <random>       //For random color creation. 
+#include <functional>   //For event function callbacks.
+#include <tuple>        //Used for CompoundShapes
+#include <cstring>      //For memcpy
+#include <vector>       //For Polygon point storage
+#include <cmath>        //For rounding, etc
+#include <algorithm>    //For std::count 
+#include <array>        //For Transform storage.
+#include <string>       //Strings...
+#include <cstdint>      //For well-defined integer types.
+#include <thread>       //For the event threa
+#include <mutex>        //Mutex object for event thread synchronization. 
+#include <fstream>      //For GIF base-64 encoding to write the file out.
+#include <iostream>     //For GIF reading.
+#include <sstream>      //used for base64 encoding.
 
-#include <list>
-#include <functional>
+//See https://github.com/mvorbrodt/blog/blob/master/src/base64.hpp for original source.
+//The below has been modified to use unsigned characters to avoid signed->unsigned->signed fiddling.
+namespace base64{
+    static constexpr unsigned char kEncodeLookup[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    static constexpr unsigned char kPadCharacter = '=';
 
-#include <tuple>    //Used for CompoundShapes
-#include <cstring>  //memcpy
-#include <vector>   //For Polygon point storage
-#include <cmath>    //For rounding, etc
-#include <array>    //For AffineTransform storage.
+    /**
+     * Encodes a given unsigned character buffer to Base64.
+     * Can be a file, for example.
+     * @param input data buffer
+     * @return Base64 encoded string.
+     */
+    inline std::string encode(const std::vector<unsigned char>& input)
+    {
+        std::stringstream encoded;
+        std::uint32_t temp{};
 
-#include <thread>
+        auto it = input.begin();
+
+        for(std::size_t i = 0; i < input.size() / 3; ++i)
+        {
+            temp  = (*it++) << 16;
+            temp += (*it++) << 8;
+            temp += (*it++);
+            encoded << kEncodeLookup[(temp & 0x00FC0000) >> 18];
+            encoded << kEncodeLookup[(temp & 0x0003F000) >> 12];
+            encoded << kEncodeLookup[(temp & 0x00000FC0) >> 6 ];
+            encoded << kEncodeLookup[(temp & 0x0000003F)      ];
+        }
+
+        switch(input.size() % 3)
+        {
+            case 1:
+                temp = (*it++) << 16;
+                encoded << kEncodeLookup[(temp & 0x00FC0000) >> 18];
+                encoded << kEncodeLookup[(temp & 0x0003F000) >> 12];
+                encoded << kPadCharacter << kPadCharacter;
+                break;
+            case 2:
+                temp  = (*it++) << 16;
+                temp += (*it++) << 8;
+                encoded << kEncodeLookup[(temp & 0x00FC0000) >> 18];
+                encoded << kEncodeLookup[(temp & 0x0003F000) >> 12];
+                encoded << kEncodeLookup[(temp & 0x00000FC0) >> 6 ];
+                encoded << kPadCharacter;
+                break;
+        }
+
+        return encoded.str();
+    }
+}
 
 namespace cturtle {
     /**The CImg library namespace alias used by the CTurtle library.*/
@@ -882,12 +1429,19 @@ namespace cturtle {
         }
     }
 
+    /**
+     * \brief The primary representation of Color for this library. 
+     * Represented as a simple RGB color composed of unsigned bytes,
+     * Color objects can be referenced by string and by packed integer.
+     * \sa detail::resolveColorComp()
+     * \sa detail::resolveColorInt()
+     * \sa fromName() 
+     */
     class Color {
     public:
         typedef uint8_t component_t;
 
         union {
-
             struct {
                 component_t r;
                 component_t g;
@@ -905,13 +1459,13 @@ namespace cturtle {
           \param g Green component.
           \param b Blue component.*/
         Color(component_t r, component_t g, component_t b) :
-        r(r), g(g), b(b) {
+                r(r), g(g), b(b) {
         };
 
         /*\brief Copy constructor.
           \param other Constant reference to other instance of a color object.*/
         Color(const Color& other) :
-        r(other.r), g(other.g), b(other.b) {
+                r(other.r), g(other.g), b(other.b) {
         }
 
         /*\brief Name constructor.
@@ -947,759 +1501,840 @@ namespace cturtle {
         }
     };
 
+    constexpr char DEFAULT_FONT[] = "default";
+    constexpr uint32_t DEFAULT_FONT_PIXELS_WIDTH = 256;
+    constexpr uint32_t DEFAULT_FONT_PIXELS_HEIGHT = 128;
+    constexpr uint32_t DEFAULT_FONT_GLYPH_WIDTH = 8;
+    constexpr uint32_t DEFAULT_FONT_GLYPH_HEIGHT = 16;
+    constexpr uint32_t DEFAULT_FONT_GLYPHS_X = 32;
+    constexpr uint32_t DEFAULT_FONT_GLYPHS_Y = 8;
+    constexpr uint32_t DEFAULT_FONT_PIXELS_LEN = 1024;
+    constexpr uint32_t DEFAULT_FONT_ASCII_OFFSET = 32;
+
+    //Proggy clean font, 8x16 glyphs, ASCII offset of 32.
+    //fairly compact in memory when expressed ike this.
+    //1-bit encoding per pixel. 1 is opaque white, 0 is transparent/empty.
+    //Proggy clean can be found HERE: https://proggyfonts.net/
+    const uint32_t DEFAULT_FONT_PIXELS[] =
+            { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x102814, 0x10443010, 0x18300000, 0x4, 0x38103838, 0x47c187c, 0x38380000, 0x38,
+              0x102814, 0x3ca84810, 0x10100000, 0x8, 0x44304444, 0xc402004, 0x44440000, 0x44, 0x10007e, 0x50a84800, 0x20081010, 0x8, 0x44500404, 0x14404008, 0x44441020, 0xc006004,
+              0x100028, 0x50503200, 0x20085410, 0x10, 0x54100818, 0x24787808, 0x38441020, 0x307e1808, 0x100028, 0x38144a00, 0x2008387c, 0x7c0010, 0x54101004, 0x44044410, 0x443c0000, 0xc0000610,
+              0x1000fc, 0x142a4400, 0x20085410, 0x20, 0x44102004, 0x7e044410, 0x44040000, 0x307e1810, 0x50, 0x142a4400, 0x20081010, 0x20002020, 0x44104044, 0x4444420, 0x44081020, 0xc006000,
+              0x100050, 0x78443a00, 0x10100000, 0x20002040, 0x387c7c38, 0x4383820, 0x38301020, 0x10, 0x0, 0x10000000, 0x10100000, 0x20000040, 0x0, 0x0, 0x20, 0x0,
+              0x0, 0x0, 0x8200000, 0x40000000, 0x0, 0x0, 0x40, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x3818781c, 0x787c7c1c, 0x42383842, 0x40c66218, 0x7818783c, 0xfe428282, 0x42827e38, 0x40381000,
+              0x44184422, 0x44404022, 0x42100844, 0x40c66224, 0x44244442, 0x10428292, 0x42820220, 0x20082800, 0x9a244440, 0x42404040, 0x42100848, 0x40aa5242, 0x44424440, 0x10424492, 0x24440420, 0x20082800,
+              0xaa247c40, 0x42787840, 0x7e100850, 0x40aa5242, 0x44424430, 0x104244aa, 0x18280820, 0x10084400, 0xaa3c4240, 0x4240404e, 0x42100870, 0x40924a42, 0x7842780c, 0x104228aa, 0x18101020, 0x10084400,
+              0x9c424240, 0x42404042, 0x42100848, 0x40924a42, 0x40424802, 0x1042286c, 0x24102020, 0x8080000, 0x40424222, 0x44404022, 0x42100844, 0x40824624, 0x40244442, 0x10421044, 0x42104020, 0x8080000,
+              0x3c427c1c, 0x787c401c, 0x42387042, 0x7c824618, 0x401a423c, 0x103c1044, 0x42107e20, 0x4080000, 0x0, 0x0, 0x0, 0x0, 0x20000, 0x0, 0x20, 0x40800fe,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x38, 0x380000, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x30004000, 0x4003c00, 0x40100840, 0x30000000, 0x0, 0x20000000, 0x1c, 0x10700000,
+              0x4000, 0x4002000, 0x40000040, 0x10000000, 0x0, 0x20000000, 0x10, 0x10100000, 0x387838, 0x3c38783c, 0x78301844, 0x10ec7838, 0x783c583c, 0x3c444482, 0x44447c10, 0x10100000,
+              0x44444, 0x44442044, 0x44100848, 0x10924444, 0x44446440, 0x20444492, 0x28440410, 0x10107200, 0x3c4440, 0x447c2044, 0x44100850, 0x10924444, 0x44444030, 0x20442892, 0x10440860, 0x100c9c00,
+              0x444440, 0x44402044, 0x44100870, 0x10924444, 0x44444008, 0x204428aa, 0x10441010, 0x10100000, 0x444444, 0x44442044, 0x44100848, 0x10924444, 0x44444004, 0x2044106c, 0x28442010, 0x10100000,
+              0x3c7838, 0x3c38203c, 0x44100844, 0x10924438, 0x783c4078, 0x1c3c1044, 0x443c7c10, 0x10100000, 0x0, 0x4, 0x800, 0x0, 0x40040000, 0x0, 0x40010, 0x10100000,
+              0x0, 0x4, 0x7000, 0x0, 0x40040000, 0x0, 0x4000c, 0x10600000, 0x0, 0x38, 0x0, 0x0, 0x40040000, 0x0, 0x380000, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0xfefe, 0xfefefefe, 0xfefefefe, 0xfe00fe00, 0xfefefe, 0xfefefefe, 0xfefefefe, 0xfe00fefe, 0x8282, 0x82828282, 0x82828282, 0x82008200, 0x828282, 0x82828282, 0x82828282, 0x82008282,
+              0x1c008282, 0x82828282, 0x82828282, 0x82008200, 0x828282, 0x82828282, 0x82828282, 0x82008282, 0x22008282, 0x82828282, 0x82828282, 0x82008200, 0x828282, 0x82828282, 0x82828282, 0x82008282,
+              0x78008282, 0x82828282, 0x82828282, 0x82008200, 0x828282, 0x82828282, 0x82828282, 0x82008282, 0x20008282, 0x82828282, 0x82828282, 0x82008200, 0x828282, 0x82828282, 0x82828282, 0x82008282,
+              0x78008282, 0x82828282, 0x82828282, 0x82008200, 0x828282, 0x82828282, 0x82828282, 0x82008282, 0x22008282, 0x82828282, 0x82828282, 0x82008200, 0x828282, 0x82828282, 0x82828282, 0x82008282,
+              0x1c008282, 0x82828282, 0x82828282, 0x82008200, 0x828282, 0x82828282, 0x82828282, 0x82008282, 0x8282, 0x82828282, 0x82828282, 0x82008200, 0x828282, 0x82828282, 0x82828282, 0x82008282,
+              0x8282, 0x82828282, 0x82828282, 0x82008200, 0x828282, 0x82828282, 0x82828282, 0x82008282, 0xfefe, 0xfefefefe, 0xfefefefe, 0xfe00fe00, 0xfefefe, 0xfefefefe, 0xfefefefe, 0xfe00fefe,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0xfe, 0x0, 0x0, 0x0, 0x4040400, 0x100018, 0x82107c, 0x287c3000, 0x7c00, 0x78007878, 0x18003e00, 0x607800, 0x4c4cec10,
+              0x1020, 0x82821040, 0x820800, 0x8200, 0x48101030, 0x7400, 0x204800, 0x48486800, 0x103820, 0x7c441030, 0x9a3814, 0xb200, 0x30102008, 0x447400, 0x204850, 0x50503010,
+              0x105478, 0x44281028, 0xa24828, 0xaa00, 0x7c7870, 0x443438, 0x703028, 0x101cd010, 0x105020, 0x44100018, 0xa23850, 0x7800b200, 0x100000, 0x441438, 0x14, 0x24222420,
+              0x105020, 0x447c1004, 0x9a0028, 0x800aa00, 0x100000, 0x441438, 0x28, 0x2c242c40, 0x105440, 0x7c101044, 0x820014, 0x8008200, 0x0, 0x641400, 0x50, 0x5e485e44,
+              0x10387c, 0x82101038, 0x7c0000, 0x8007c00, 0x7c0000, 0x5a1400, 0x0, 0x444e4438, 0x1000, 0x1000, 0x0, 0x0, 0x0, 0x401400, 0x18000000, 0x0,
+              0x0, 0x1000, 0x0, 0x0, 0x0, 0x800000, 0x8000000, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x10000000, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x10081814, 0x180000, 0x20081000, 0x10081000, 0x141008, 0x18140000, 0x100818, 0x80000, 0x8102428, 0x24241e1c, 0x10102828, 0x8102828, 0x280810, 0x24282400, 0x1a081024, 0x2410407c,
+              0x18181818, 0x18182822, 0x7c7c7c7c, 0x38383838, 0x78621818, 0x18181800, 0x24424242, 0x42824044, 0x24242424, 0x24242840, 0x40404040, 0x10101010, 0x44522424, 0x24242444, 0x4a424242, 0x42827878,
+              0x24242424, 0x24244c40, 0x40404040, 0x10101010, 0x42524242, 0x42424228, 0x4a424242, 0x42444444, 0x3c3c3c3c, 0x3c3c7840, 0x78787878, 0x10101010, 0xf24a4242, 0x42424210, 0x52424242, 0x42284442,
+              0x42424242, 0x42428840, 0x40404040, 0x10101010, 0x424a4242, 0x42424228, 0x52424242, 0x42107842, 0x42424242, 0x42428822, 0x40404040, 0x10101010, 0x44462424, 0x24242444, 0x24424242, 0x42104042,
+              0x42424242, 0x42428e1c, 0x7c7c7c7c, 0x38383838, 0x78461818, 0x18181800, 0x583c3c3c, 0x3c10407c, 0x0, 0x8, 0x0, 0x0, 0x0, 0x0, 0x0, 0x80,
+              0x0, 0x8, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x10, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x100000, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1818383c, 0x28380000, 0x30303828, 0x30303828, 0x3c783018, 0x383c2800, 0x303038, 0x28184028,
+              0x0, 0x0, 0x0, 0x0, 0x14000000, 0x0, 0x4000000, 0x4000, 0x38383838, 0x38386c38, 0x38383838, 0x30303030, 0x4783838, 0x38383810, 0x38444444, 0x44447844,
+              0x4040404, 0x4041244, 0x44444444, 0x10101010, 0x3c444444, 0x44444400, 0x4c444444, 0x44444444, 0x3c3c3c3c, 0x3c3c7e40, 0x7c7c7c7c, 0x10101010, 0x44444444, 0x4444447c, 0x54444444, 0x44444444,
+              0x44444444, 0x44449040, 0x40404040, 0x10101010, 0x44444444, 0x44444400, 0x54444444, 0x44444444, 0x44444444, 0x44449244, 0x44444444, 0x10101010, 0x44444444, 0x44444410, 0x64444444, 0x44444444,
+              0x3c3c3c3c, 0x3c3c7c38, 0x38383838, 0x10101010, 0x38443838, 0x38383800, 0x383c3c3c, 0x3c3c783c, 0x0, 0x10, 0x0, 0x0, 0x0, 0x0, 0x40000000, 0x44004,
+              0x0, 0x10, 0x0, 0x0, 0x0, 0x0, 0x0, 0x44004, 0x0, 0x20, 0x0, 0x0, 0x0, 0x0, 0x0, 0x380038,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+              0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 };
+
+
     const std::unordered_map<std::string, detail::color_int_t> NAMED_COLORS = {
-        {"alice blue", detail::col::alice_blue},
-        {"AliceBlue", detail::col::AliceBlue},
-        {"antique white", detail::col::antique_white},
-        {"AntiqueWhite", detail::col::AntiqueWhite},
-        {"AntiqueWhite1", detail::col::AntiqueWhite1},
-        {"AntiqueWhite2", detail::col::AntiqueWhite2},
-        {"AntiqueWhite3", detail::col::AntiqueWhite3},
-        {"AntiqueWhite4", detail::col::AntiqueWhite4},
-        {"aquamarine", detail::col::aquamarine},
-        {"aquamarine1", detail::col::aquamarine1},
-        {"aquamarine2", detail::col::aquamarine2},
-        {"aquamarine3", detail::col::aquamarine3},
-        {"aquamarine4", detail::col::aquamarine4},
-        {"azure", detail::col::azure},
-        {"azure1", detail::col::azure1},
-        {"azure2", detail::col::azure2},
-        {"azure3", detail::col::azure3},
-        {"azure4", detail::col::azure4},
-        {"beige", detail::col::beige},
-        {"bisque", detail::col::bisque},
-        {"bisque1", detail::col::bisque1},
-        {"bisque2", detail::col::bisque2},
-        {"bisque3", detail::col::bisque3},
-        {"bisque4", detail::col::bisque4},
-        {"black", detail::col::black},
-        {"blanched almond", detail::col::blanched_almond},
-        {"BlanchedAlmond", detail::col::BlanchedAlmond},
-        {"blue", detail::col::blue},
-        {"blue violet", detail::col::blue_violet},
-        {"blue1", detail::col::blue1},
-        {"blue2", detail::col::blue2},
-        {"blue3", detail::col::blue3},
-        {"blue4", detail::col::blue4},
-        {"BlueViolet", detail::col::BlueViolet},
-        {"brown", detail::col::brown},
-        {"brown1", detail::col::brown1},
-        {"brown2", detail::col::brown2},
-        {"brown3", detail::col::brown3},
-        {"brown4", detail::col::brown4},
-        {"burlywood", detail::col::burlywood},
-        {"burlywood1", detail::col::burlywood1},
-        {"burlywood2", detail::col::burlywood2},
-        {"burlywood3", detail::col::burlywood3},
-        {"burlywood4", detail::col::burlywood4},
-        {"cadet blue", detail::col::cadet_blue},
-        {"CadetBlue", detail::col::CadetBlue},
-        {"CadetBlue1", detail::col::CadetBlue1},
-        {"CadetBlue2", detail::col::CadetBlue2},
-        {"CadetBlue3", detail::col::CadetBlue3},
-        {"CadetBlue4", detail::col::CadetBlue4},
-        {"chartreuse", detail::col::chartreuse},
-        {"chartreuse1", detail::col::chartreuse1},
-        {"chartreuse2", detail::col::chartreuse2},
-        {"chartreuse3", detail::col::chartreuse3},
-        {"chartreuse4", detail::col::chartreuse4},
-        {"chocolate", detail::col::chocolate},
-        {"chocolate1", detail::col::chocolate1},
-        {"chocolate2", detail::col::chocolate2},
-        {"chocolate3", detail::col::chocolate3},
-        {"chocolate4", detail::col::chocolate4},
-        {"coral", detail::col::coral},
-        {"coral1", detail::col::coral1},
-        {"coral2", detail::col::coral2},
-        {"coral3", detail::col::coral3},
-        {"coral4", detail::col::coral4},
-        {"cornflower blue", detail::col::cornflower_blue},
-        {"CornflowerBlue", detail::col::CornflowerBlue},
-        {"cornsilk", detail::col::cornsilk},
-        {"cornsilk1", detail::col::cornsilk1},
-        {"cornsilk2", detail::col::cornsilk2},
-        {"cornsilk3", detail::col::cornsilk3},
-        {"cornsilk4", detail::col::cornsilk4},
-        {"cyan", detail::col::cyan},
-        {"cyan1", detail::col::cyan1},
-        {"cyan2", detail::col::cyan2},
-        {"cyan3", detail::col::cyan3},
-        {"cyan4", detail::col::cyan4},
-        {"dark blue", detail::col::dark_blue},
-        {"dark cyan", detail::col::dark_cyan},
-        {"dark goldenrod", detail::col::dark_goldenrod},
-        {"dark gray", detail::col::dark_gray},
-        {"dark green", detail::col::dark_green},
-        {"dark grey", detail::col::dark_grey},
-        {"dark khaki", detail::col::dark_khaki},
-        {"dark magenta", detail::col::dark_magenta},
-        {"dark olive green", detail::col::dark_olive_green},
-        {"dark orange", detail::col::dark_orange},
-        {"dark orchid", detail::col::dark_orchid},
-        {"dark red", detail::col::dark_red},
-        {"dark salmon", detail::col::dark_salmon},
-        {"dark sea green", detail::col::dark_sea_green},
-        {"dark slate blue", detail::col::dark_slate_blue},
-        {"dark slate gray", detail::col::dark_slate_gray},
-        {"dark slate grey", detail::col::dark_slate_grey},
-        {"dark turquoise", detail::col::dark_turquoise},
-        {"dark violet", detail::col::dark_violet},
-        {"DarkBlue", detail::col::DarkBlue},
-        {"DarkCyan", detail::col::DarkCyan},
-        {"DarkGoldenrod", detail::col::DarkGoldenrod},
-        {"DarkGoldenrod1", detail::col::DarkGoldenrod1},
-        {"DarkGoldenrod2", detail::col::DarkGoldenrod2},
-        {"DarkGoldenrod3", detail::col::DarkGoldenrod3},
-        {"DarkGoldenrod4", detail::col::DarkGoldenrod4},
-        {"DarkGray", detail::col::DarkGray},
-        {"DarkGreen", detail::col::DarkGreen},
-        {"DarkGrey", detail::col::DarkGrey},
-        {"DarkKhaki", detail::col::DarkKhaki},
-        {"DarkMagenta", detail::col::DarkMagenta},
-        {"DarkOliveGreen", detail::col::DarkOliveGreen},
-        {"DarkOliveGreen1", detail::col::DarkOliveGreen1},
-        {"DarkOliveGreen2", detail::col::DarkOliveGreen2},
-        {"DarkOliveGreen3", detail::col::DarkOliveGreen3},
-        {"DarkOliveGreen4", detail::col::DarkOliveGreen4},
-        {"DarkOrange", detail::col::DarkOrange},
-        {"DarkOrange1", detail::col::DarkOrange1},
-        {"DarkOrange2", detail::col::DarkOrange2},
-        {"DarkOrange3", detail::col::DarkOrange3},
-        {"DarkOrange4", detail::col::DarkOrange4},
-        {"DarkOrchid", detail::col::DarkOrchid},
-        {"DarkOrchid1", detail::col::DarkOrchid1},
-        {"DarkOrchid2", detail::col::DarkOrchid2},
-        {"DarkOrchid3", detail::col::DarkOrchid3},
-        {"DarkOrchid4", detail::col::DarkOrchid4},
-        {"DarkRed", detail::col::DarkRed},
-        {"DarkSalmon", detail::col::DarkSalmon},
-        {"DarkSeaGreen", detail::col::DarkSeaGreen},
-        {"DarkSeaGreen1", detail::col::DarkSeaGreen1},
-        {"DarkSeaGreen2", detail::col::DarkSeaGreen2},
-        {"DarkSeaGreen3", detail::col::DarkSeaGreen3},
-        {"DarkSeaGreen4", detail::col::DarkSeaGreen4},
-        {"DarkSlateBlue", detail::col::DarkSlateBlue},
-        {"DarkSlateGray", detail::col::DarkSlateGray},
-        {"DarkSlateGray1", detail::col::DarkSlateGray1},
-        {"DarkSlateGray2", detail::col::DarkSlateGray2},
-        {"DarkSlateGray3", detail::col::DarkSlateGray3},
-        {"DarkSlateGray4", detail::col::DarkSlateGray4},
-        {"DarkSlateGrey", detail::col::DarkSlateGrey},
-        {"DarkTurquoise", detail::col::DarkTurquoise},
-        {"DarkViolet", detail::col::DarkViolet},
-        {"deep pink", detail::col::deep_pink},
-        {"deep sky blue", detail::col::deep_sky_blue},
-        {"DeepPink", detail::col::DeepPink},
-        {"DeepPink1", detail::col::DeepPink1},
-        {"DeepPink2", detail::col::DeepPink2},
-        {"DeepPink3", detail::col::DeepPink3},
-        {"DeepPink4", detail::col::DeepPink4},
-        {"DeepSkyBlue", detail::col::DeepSkyBlue},
-        {"DeepSkyBlue1", detail::col::DeepSkyBlue1},
-        {"DeepSkyBlue2", detail::col::DeepSkyBlue2},
-        {"DeepSkyBlue3", detail::col::DeepSkyBlue3},
-        {"DeepSkyBlue4", detail::col::DeepSkyBlue4},
-        {"dim gray", detail::col::dim_gray},
-        {"dim grey", detail::col::dim_grey},
-        {"DimGray", detail::col::DimGray},
-        {"DimGrey", detail::col::DimGrey},
-        {"dodger blue", detail::col::dodger_blue},
-        {"DodgerBlue", detail::col::DodgerBlue},
-        {"DodgerBlue1", detail::col::DodgerBlue1},
-        {"DodgerBlue2", detail::col::DodgerBlue2},
-        {"DodgerBlue3", detail::col::DodgerBlue3},
-        {"DodgerBlue4", detail::col::DodgerBlue4},
-        {"firebrick", detail::col::firebrick},
-        {"firebrick1", detail::col::firebrick1},
-        {"firebrick2", detail::col::firebrick2},
-        {"firebrick3", detail::col::firebrick3},
-        {"firebrick4", detail::col::firebrick4},
-        {"floral white", detail::col::floral_white},
-        {"FloralWhite", detail::col::FloralWhite},
-        {"forest green", detail::col::forest_green},
-        {"ForestGreen", detail::col::ForestGreen},
-        {"gainsboro", detail::col::gainsboro},
-        {"ghost white", detail::col::ghost_white},
-        {"GhostWhite", detail::col::GhostWhite},
-        {"gold", detail::col::gold},
-        {"gold1", detail::col::gold1},
-        {"gold2", detail::col::gold2},
-        {"gold3", detail::col::gold3},
-        {"gold4", detail::col::gold4},
-        {"goldenrod", detail::col::goldenrod},
-        {"goldenrod1", detail::col::goldenrod1},
-        {"goldenrod2", detail::col::goldenrod2},
-        {"goldenrod3", detail::col::goldenrod3},
-        {"goldenrod4", detail::col::goldenrod4},
-        {"gray", detail::col::gray},
-        {"gray0", detail::col::gray0},
-        {"gray1", detail::col::gray1},
-        {"gray2", detail::col::gray2},
-        {"gray3", detail::col::gray3},
-        {"gray4", detail::col::gray4},
-        {"gray5", detail::col::gray5},
-        {"gray6", detail::col::gray6},
-        {"gray7", detail::col::gray7},
-        {"gray8", detail::col::gray8},
-        {"gray9", detail::col::gray9},
-        {"gray10", detail::col::gray10},
-        {"gray11", detail::col::gray11},
-        {"gray12", detail::col::gray12},
-        {"gray13", detail::col::gray13},
-        {"gray14", detail::col::gray14},
-        {"gray15", detail::col::gray15},
-        {"gray16", detail::col::gray16},
-        {"gray17", detail::col::gray17},
-        {"gray18", detail::col::gray18},
-        {"gray19", detail::col::gray19},
-        {"gray20", detail::col::gray20},
-        {"gray21", detail::col::gray21},
-        {"gray22", detail::col::gray22},
-        {"gray23", detail::col::gray23},
-        {"gray24", detail::col::gray24},
-        {"gray25", detail::col::gray25},
-        {"gray26", detail::col::gray26},
-        {"gray27", detail::col::gray27},
-        {"gray28", detail::col::gray28},
-        {"gray29", detail::col::gray29},
-        {"gray30", detail::col::gray30},
-        {"gray31", detail::col::gray31},
-        {"gray32", detail::col::gray32},
-        {"gray33", detail::col::gray33},
-        {"gray34", detail::col::gray34},
-        {"gray35", detail::col::gray35},
-        {"gray36", detail::col::gray36},
-        {"gray37", detail::col::gray37},
-        {"gray38", detail::col::gray38},
-        {"gray39", detail::col::gray39},
-        {"gray40", detail::col::gray40},
-        {"gray41", detail::col::gray41},
-        {"gray42", detail::col::gray42},
-        {"gray43", detail::col::gray43},
-        {"gray44", detail::col::gray44},
-        {"gray45", detail::col::gray45},
-        {"gray46", detail::col::gray46},
-        {"gray47", detail::col::gray47},
-        {"gray48", detail::col::gray48},
-        {"gray49", detail::col::gray49},
-        {"gray50", detail::col::gray50},
-        {"gray51", detail::col::gray51},
-        {"gray52", detail::col::gray52},
-        {"gray53", detail::col::gray53},
-        {"gray54", detail::col::gray54},
-        {"gray55", detail::col::gray55},
-        {"gray56", detail::col::gray56},
-        {"gray57", detail::col::gray57},
-        {"gray58", detail::col::gray58},
-        {"gray59", detail::col::gray59},
-        {"gray60", detail::col::gray60},
-        {"gray61", detail::col::gray61},
-        {"gray62", detail::col::gray62},
-        {"gray63", detail::col::gray63},
-        {"gray64", detail::col::gray64},
-        {"gray65", detail::col::gray65},
-        {"gray66", detail::col::gray66},
-        {"gray67", detail::col::gray67},
-        {"gray68", detail::col::gray68},
-        {"gray69", detail::col::gray69},
-        {"gray70", detail::col::gray70},
-        {"gray71", detail::col::gray71},
-        {"gray72", detail::col::gray72},
-        {"gray73", detail::col::gray73},
-        {"gray74", detail::col::gray74},
-        {"gray75", detail::col::gray75},
-        {"gray76", detail::col::gray76},
-        {"gray77", detail::col::gray77},
-        {"gray78", detail::col::gray78},
-        {"gray79", detail::col::gray79},
-        {"gray80", detail::col::gray80},
-        {"gray81", detail::col::gray81},
-        {"gray82", detail::col::gray82},
-        {"gray83", detail::col::gray83},
-        {"gray84", detail::col::gray84},
-        {"gray85", detail::col::gray85},
-        {"gray86", detail::col::gray86},
-        {"gray87", detail::col::gray87},
-        {"gray88", detail::col::gray88},
-        {"gray89", detail::col::gray89},
-        {"gray90", detail::col::gray90},
-        {"gray91", detail::col::gray91},
-        {"gray92", detail::col::gray92},
-        {"gray93", detail::col::gray93},
-        {"gray94", detail::col::gray94},
-        {"gray95", detail::col::gray95},
-        {"gray96", detail::col::gray96},
-        {"gray97", detail::col::gray97},
-        {"gray98", detail::col::gray98},
-        {"gray99", detail::col::gray99},
-        {"gray100", detail::col::gray100},
-        {"green", detail::col::green},
-        {"green yellow", detail::col::green_yellow},
-        {"green1", detail::col::green1},
-        {"green2", detail::col::green2},
-        {"green3", detail::col::green3},
-        {"green4", detail::col::green4},
-        {"GreenYellow", detail::col::GreenYellow},
-        {"grey", detail::col::grey},
-        {"grey0", detail::col::grey0},
-        {"grey1", detail::col::grey1},
-        {"grey2", detail::col::grey2},
-        {"grey3", detail::col::grey3},
-        {"grey4", detail::col::grey4},
-        {"grey5", detail::col::grey5},
-        {"grey6", detail::col::grey6},
-        {"grey7", detail::col::grey7},
-        {"grey8", detail::col::grey8},
-        {"grey9", detail::col::grey9},
-        {"grey10", detail::col::grey10},
-        {"grey11", detail::col::grey11},
-        {"grey12", detail::col::grey12},
-        {"grey13", detail::col::grey13},
-        {"grey14", detail::col::grey14},
-        {"grey15", detail::col::grey15},
-        {"grey16", detail::col::grey16},
-        {"grey17", detail::col::grey17},
-        {"grey18", detail::col::grey18},
-        {"grey19", detail::col::grey19},
-        {"grey20", detail::col::grey20},
-        {"grey21", detail::col::grey21},
-        {"grey22", detail::col::grey22},
-        {"grey23", detail::col::grey23},
-        {"grey24", detail::col::grey24},
-        {"grey25", detail::col::grey25},
-        {"grey26", detail::col::grey26},
-        {"grey27", detail::col::grey27},
-        {"grey28", detail::col::grey28},
-        {"grey29", detail::col::grey29},
-        {"grey30", detail::col::grey30},
-        {"grey31", detail::col::grey31},
-        {"grey32", detail::col::grey32},
-        {"grey33", detail::col::grey33},
-        {"grey34", detail::col::grey34},
-        {"grey35", detail::col::grey35},
-        {"grey36", detail::col::grey36},
-        {"grey37", detail::col::grey37},
-        {"grey38", detail::col::grey38},
-        {"grey39", detail::col::grey39},
-        {"grey40", detail::col::grey40},
-        {"grey41", detail::col::grey41},
-        {"grey42", detail::col::grey42},
-        {"grey43", detail::col::grey43},
-        {"grey44", detail::col::grey44},
-        {"grey45", detail::col::grey45},
-        {"grey46", detail::col::grey46},
-        {"grey47", detail::col::grey47},
-        {"grey48", detail::col::grey48},
-        {"grey49", detail::col::grey49},
-        {"grey50", detail::col::grey50},
-        {"grey51", detail::col::grey51},
-        {"grey52", detail::col::grey52},
-        {"grey53", detail::col::grey53},
-        {"grey54", detail::col::grey54},
-        {"grey55", detail::col::grey55},
-        {"grey56", detail::col::grey56},
-        {"grey57", detail::col::grey57},
-        {"grey58", detail::col::grey58},
-        {"grey59", detail::col::grey59},
-        {"grey60", detail::col::grey60},
-        {"grey61", detail::col::grey61},
-        {"grey62", detail::col::grey62},
-        {"grey63", detail::col::grey63},
-        {"grey64", detail::col::grey64},
-        {"grey65", detail::col::grey65},
-        {"grey66", detail::col::grey66},
-        {"grey67", detail::col::grey67},
-        {"grey68", detail::col::grey68},
-        {"grey69", detail::col::grey69},
-        {"grey70", detail::col::grey70},
-        {"grey71", detail::col::grey71},
-        {"grey72", detail::col::grey72},
-        {"grey73", detail::col::grey73},
-        {"grey74", detail::col::grey74},
-        {"grey75", detail::col::grey75},
-        {"grey76", detail::col::grey76},
-        {"grey77", detail::col::grey77},
-        {"grey78", detail::col::grey78},
-        {"grey79", detail::col::grey79},
-        {"grey80", detail::col::grey80},
-        {"grey81", detail::col::grey81},
-        {"grey82", detail::col::grey82},
-        {"grey83", detail::col::grey83},
-        {"grey84", detail::col::grey84},
-        {"grey85", detail::col::grey85},
-        {"grey86", detail::col::grey86},
-        {"grey87", detail::col::grey87},
-        {"grey88", detail::col::grey88},
-        {"grey89", detail::col::grey89},
-        {"grey90", detail::col::grey90},
-        {"grey91", detail::col::grey91},
-        {"grey92", detail::col::grey92},
-        {"grey93", detail::col::grey93},
-        {"grey94", detail::col::grey94},
-        {"grey95", detail::col::grey95},
-        {"grey96", detail::col::grey96},
-        {"grey97", detail::col::grey97},
-        {"grey98", detail::col::grey98},
-        {"grey99", detail::col::grey99},
-        {"grey100", detail::col::grey100},
-        {"honeydew", detail::col::honeydew},
-        {"honeydew1", detail::col::honeydew1},
-        {"honeydew2", detail::col::honeydew2},
-        {"honeydew3", detail::col::honeydew3},
-        {"honeydew4", detail::col::honeydew4},
-        {"hot pink", detail::col::hot_pink},
-        {"HotPink", detail::col::HotPink},
-        {"HotPink1", detail::col::HotPink1},
-        {"HotPink2", detail::col::HotPink2},
-        {"HotPink3", detail::col::HotPink3},
-        {"HotPink4", detail::col::HotPink4},
-        {"indian red", detail::col::indian_red},
-        {"IndianRed", detail::col::IndianRed},
-        {"IndianRed1", detail::col::IndianRed1},
-        {"IndianRed2", detail::col::IndianRed2},
-        {"IndianRed3", detail::col::IndianRed3},
-        {"IndianRed4", detail::col::IndianRed4},
-        {"ivory", detail::col::ivory},
-        {"ivory1", detail::col::ivory1},
-        {"ivory2", detail::col::ivory2},
-        {"ivory3", detail::col::ivory3},
-        {"ivory4", detail::col::ivory4},
-        {"khaki", detail::col::khaki},
-        {"khaki1", detail::col::khaki1},
-        {"khaki2", detail::col::khaki2},
-        {"khaki3", detail::col::khaki3},
-        {"khaki4", detail::col::khaki4},
-        {"lavender", detail::col::lavender},
-        {"lavender blush", detail::col::lavender_blush},
-        {"LavenderBlush", detail::col::LavenderBlush},
-        {"LavenderBlush1", detail::col::LavenderBlush1},
-        {"LavenderBlush2", detail::col::LavenderBlush2},
-        {"LavenderBlush3", detail::col::LavenderBlush3},
-        {"LavenderBlush4", detail::col::LavenderBlush4},
-        {"lawn green", detail::col::lawn_green},
-        {"LawnGreen", detail::col::LawnGreen},
-        {"lemon chiffon", detail::col::lemon_chiffon},
-        {"LemonChiffon", detail::col::LemonChiffon},
-        {"LemonChiffon1", detail::col::LemonChiffon1},
-        {"LemonChiffon2", detail::col::LemonChiffon2},
-        {"LemonChiffon3", detail::col::LemonChiffon3},
-        {"LemonChiffon4", detail::col::LemonChiffon4},
-        {"light blue", detail::col::light_blue},
-        {"light coral", detail::col::light_coral},
-        {"light cyan", detail::col::light_cyan},
-        {"light goldenrod", detail::col::light_goldenrod},
-        {"light goldenrod yellow", detail::col::light_goldenrod_yellow},
-        {"light gray", detail::col::light_gray},
-        {"light green", detail::col::light_green},
-        {"light grey", detail::col::light_grey},
-        {"light pink", detail::col::light_pink},
-        {"light salmon", detail::col::light_salmon},
-        {"light sea green", detail::col::light_sea_green},
-        {"light sky blue", detail::col::light_sky_blue},
-        {"light slate blue", detail::col::light_slate_blue},
-        {"light slate gray", detail::col::light_slate_gray},
-        {"light slate grey", detail::col::light_slate_grey},
-        {"light steel blue", detail::col::light_steel_blue},
-        {"light yellow", detail::col::light_yellow},
-        {"LightBlue", detail::col::LightBlue},
-        {"LightBlue1", detail::col::LightBlue1},
-        {"LightBlue2", detail::col::LightBlue2},
-        {"LightBlue3", detail::col::LightBlue3},
-        {"LightBlue4", detail::col::LightBlue4},
-        {"LightCoral", detail::col::LightCoral},
-        {"LightCyan", detail::col::LightCyan},
-        {"LightCyan1", detail::col::LightCyan1},
-        {"LightCyan2", detail::col::LightCyan2},
-        {"LightCyan3", detail::col::LightCyan3},
-        {"LightCyan4", detail::col::LightCyan4},
-        {"LightGoldenrod", detail::col::LightGoldenrod},
-        {"LightGoldenrod1", detail::col::LightGoldenrod1},
-        {"LightGoldenrod2", detail::col::LightGoldenrod2},
-        {"LightGoldenrod3", detail::col::LightGoldenrod3},
-        {"LightGoldenrod4", detail::col::LightGoldenrod4},
-        {"LightGoldenrodYellow", detail::col::LightGoldenrodYellow},
-        {"LightGray", detail::col::LightGray},
-        {"LightGreen", detail::col::LightGreen},
-        {"LightGrey", detail::col::LightGrey},
-        {"LightPink", detail::col::LightPink},
-        {"LightPink1", detail::col::LightPink1},
-        {"LightPink2", detail::col::LightPink2},
-        {"LightPink3", detail::col::LightPink3},
-        {"LightPink4", detail::col::LightPink4},
-        {"LightSalmon", detail::col::LightSalmon},
-        {"LightSalmon1", detail::col::LightSalmon1},
-        {"LightSalmon2", detail::col::LightSalmon2},
-        {"LightSalmon3", detail::col::LightSalmon3},
-        {"LightSalmon4", detail::col::LightSalmon4},
-        {"LightSeaGreen", detail::col::LightSeaGreen},
-        {"LightSkyBlue", detail::col::LightSkyBlue},
-        {"LightSkyBlue1", detail::col::LightSkyBlue1},
-        {"LightSkyBlue2", detail::col::LightSkyBlue2},
-        {"LightSkyBlue3", detail::col::LightSkyBlue3},
-        {"LightSkyBlue4", detail::col::LightSkyBlue4},
-        {"LightSlateBlue", detail::col::LightSlateBlue},
-        {"LightSlateGray", detail::col::LightSlateGray},
-        {"LightSlateGrey", detail::col::LightSlateGrey},
-        {"LightSteelBlue", detail::col::LightSteelBlue},
-        {"LightSteelBlue1", detail::col::LightSteelBlue1},
-        {"LightSteelBlue2", detail::col::LightSteelBlue2},
-        {"LightSteelBlue3", detail::col::LightSteelBlue3},
-        {"LightSteelBlue4", detail::col::LightSteelBlue4},
-        {"LightYellow", detail::col::LightYellow},
-        {"LightYellow1", detail::col::LightYellow1},
-        {"LightYellow2", detail::col::LightYellow2},
-        {"LightYellow3", detail::col::LightYellow3},
-        {"LightYellow4", detail::col::LightYellow4},
-        {"lime green", detail::col::lime_green},
-        {"LimeGreen", detail::col::LimeGreen},
-        {"linen", detail::col::linen},
-        {"magenta", detail::col::magenta},
-        {"magenta1", detail::col::magenta1},
-        {"magenta2", detail::col::magenta2},
-        {"magenta3", detail::col::magenta3},
-        {"magenta4", detail::col::magenta4},
-        {"maroon", detail::col::maroon},
-        {"maroon1", detail::col::maroon1},
-        {"maroon2", detail::col::maroon2},
-        {"maroon3", detail::col::maroon3},
-        {"maroon4", detail::col::maroon4},
-        {"medium aquamarine", detail::col::medium_aquamarine},
-        {"medium blue", detail::col::medium_blue},
-        {"medium orchid", detail::col::medium_orchid},
-        {"medium purple", detail::col::medium_purple},
-        {"medium sea green", detail::col::medium_sea_green},
-        {"medium slate blue", detail::col::medium_slate_blue},
-        {"medium spring green", detail::col::medium_spring_green},
-        {"medium turquoise", detail::col::medium_turquoise},
-        {"medium violet red", detail::col::medium_violet_red},
-        {"MediumAquamarine", detail::col::MediumAquamarine},
-        {"MediumBlue", detail::col::MediumBlue},
-        {"MediumOrchid", detail::col::MediumOrchid},
-        {"MediumOrchid1", detail::col::MediumOrchid1},
-        {"MediumOrchid2", detail::col::MediumOrchid2},
-        {"MediumOrchid3", detail::col::MediumOrchid3},
-        {"MediumOrchid4", detail::col::MediumOrchid4},
-        {"MediumPurple", detail::col::MediumPurple},
-        {"MediumPurple1", detail::col::MediumPurple1},
-        {"MediumPurple2", detail::col::MediumPurple2},
-        {"MediumPurple3", detail::col::MediumPurple3},
-        {"MediumPurple4", detail::col::MediumPurple4},
-        {"MediumSeaGreen", detail::col::MediumSeaGreen},
-        {"MediumSlateBlue", detail::col::MediumSlateBlue},
-        {"MediumSpringGreen", detail::col::MediumSpringGreen},
-        {"MediumTurquoise", detail::col::MediumTurquoise},
-        {"MediumVioletRed", detail::col::MediumVioletRed},
-        {"midnight blue", detail::col::midnight_blue},
-        {"MidnightBlue", detail::col::MidnightBlue},
-        {"mint cream", detail::col::mint_cream},
-        {"MintCream", detail::col::MintCream},
-        {"misty rose", detail::col::misty_rose},
-        {"MistyRose", detail::col::MistyRose},
-        {"MistyRose1", detail::col::MistyRose1},
-        {"MistyRose2", detail::col::MistyRose2},
-        {"MistyRose3", detail::col::MistyRose3},
-        {"MistyRose4", detail::col::MistyRose4},
-        {"moccasin", detail::col::moccasin},
-        {"navajo white", detail::col::navajo_white},
-        {"NavajoWhite", detail::col::NavajoWhite},
-        {"NavajoWhite1", detail::col::NavajoWhite1},
-        {"NavajoWhite2", detail::col::NavajoWhite2},
-        {"NavajoWhite3", detail::col::NavajoWhite3},
-        {"NavajoWhite4", detail::col::NavajoWhite4},
-        {"navy", detail::col::navy},
-        {"navy blue", detail::col::navy_blue},
-        {"NavyBlue", detail::col::NavyBlue},
-        {"old lace", detail::col::old_lace},
-        {"OldLace", detail::col::OldLace},
-        {"olive drab", detail::col::olive_drab},
-        {"OliveDrab", detail::col::OliveDrab},
-        {"OliveDrab1", detail::col::OliveDrab1},
-        {"OliveDrab2", detail::col::OliveDrab2},
-        {"OliveDrab3", detail::col::OliveDrab3},
-        {"OliveDrab4", detail::col::OliveDrab4},
-        {"orange", detail::col::orange},
-        {"orange red", detail::col::orange_red},
-        {"orange1", detail::col::orange1},
-        {"orange2", detail::col::orange2},
-        {"orange3", detail::col::orange3},
-        {"orange4", detail::col::orange4},
-        {"OrangeRed", detail::col::OrangeRed},
-        {"OrangeRed1", detail::col::OrangeRed1},
-        {"OrangeRed2", detail::col::OrangeRed2},
-        {"OrangeRed3", detail::col::OrangeRed3},
-        {"OrangeRed4", detail::col::OrangeRed4},
-        {"orchid", detail::col::orchid},
-        {"orchid1", detail::col::orchid1},
-        {"orchid2", detail::col::orchid2},
-        {"orchid3", detail::col::orchid3},
-        {"orchid4", detail::col::orchid4},
-        {"pale goldenrod", detail::col::pale_goldenrod},
-        {"pale green", detail::col::pale_green},
-        {"pale turquoise", detail::col::pale_turquoise},
-        {"pale violet red", detail::col::pale_violet_red},
-        {"PaleGoldenrod", detail::col::PaleGoldenrod},
-        {"PaleGreen", detail::col::PaleGreen},
-        {"PaleGreen1", detail::col::PaleGreen1},
-        {"PaleGreen2", detail::col::PaleGreen2},
-        {"PaleGreen3", detail::col::PaleGreen3},
-        {"PaleGreen4", detail::col::PaleGreen4},
-        {"PaleTurquoise", detail::col::PaleTurquoise},
-        {"PaleTurquoise1", detail::col::PaleTurquoise1},
-        {"PaleTurquoise2", detail::col::PaleTurquoise2},
-        {"PaleTurquoise3", detail::col::PaleTurquoise3},
-        {"PaleTurquoise4", detail::col::PaleTurquoise4},
-        {"PaleVioletRed", detail::col::PaleVioletRed},
-        {"PaleVioletRed1", detail::col::PaleVioletRed1},
-        {"PaleVioletRed2", detail::col::PaleVioletRed2},
-        {"PaleVioletRed3", detail::col::PaleVioletRed3},
-        {"PaleVioletRed4", detail::col::PaleVioletRed4},
-        {"papaya whip", detail::col::papaya_whip},
-        {"PapayaWhip", detail::col::PapayaWhip},
-        {"peach puff", detail::col::peach_puff},
-        {"PeachPuff", detail::col::PeachPuff},
-        {"PeachPuff1", detail::col::PeachPuff1},
-        {"PeachPuff2", detail::col::PeachPuff2},
-        {"PeachPuff3", detail::col::PeachPuff3},
-        {"PeachPuff4", detail::col::PeachPuff4},
-        {"peru", detail::col::peru},
-        {"pink", detail::col::pink},
-        {"pink1", detail::col::pink1},
-        {"pink2", detail::col::pink2},
-        {"pink3", detail::col::pink3},
-        {"pink4", detail::col::pink4},
-        {"plum", detail::col::plum},
-        {"plum1", detail::col::plum1},
-        {"plum2", detail::col::plum2},
-        {"plum3", detail::col::plum3},
-        {"plum4", detail::col::plum4},
-        {"powder blue", detail::col::powder_blue},
-        {"PowderBlue", detail::col::PowderBlue},
-        {"purple", detail::col::purple},
-        {"purple1", detail::col::purple1},
-        {"purple2", detail::col::purple2},
-        {"purple3", detail::col::purple3},
-        {"purple4", detail::col::purple4},
-        {"red", detail::col::red},
-        {"red1", detail::col::red1},
-        {"red2", detail::col::red2},
-        {"red3", detail::col::red3},
-        {"red4", detail::col::red4},
-        {"rosy brown", detail::col::rosy_brown},
-        {"RosyBrown", detail::col::RosyBrown},
-        {"RosyBrown1", detail::col::RosyBrown1},
-        {"RosyBrown2", detail::col::RosyBrown2},
-        {"RosyBrown3", detail::col::RosyBrown3},
-        {"RosyBrown4", detail::col::RosyBrown4},
-        {"royal blue", detail::col::royal_blue},
-        {"RoyalBlue", detail::col::RoyalBlue},
-        {"RoyalBlue1", detail::col::RoyalBlue1},
-        {"RoyalBlue2", detail::col::RoyalBlue2},
-        {"RoyalBlue3", detail::col::RoyalBlue3},
-        {"RoyalBlue4", detail::col::RoyalBlue4},
-        {"saddle brown", detail::col::saddle_brown},
-        {"SaddleBrown", detail::col::SaddleBrown},
-        {"salmon", detail::col::salmon},
-        {"salmon1", detail::col::salmon1},
-        {"salmon2", detail::col::salmon2},
-        {"salmon3", detail::col::salmon3},
-        {"salmon4", detail::col::salmon4},
-        {"sandy brown", detail::col::sandy_brown},
-        {"SandyBrown", detail::col::SandyBrown},
-        {"sea green", detail::col::sea_green},
-        {"SeaGreen", detail::col::SeaGreen},
-        {"SeaGreen1", detail::col::SeaGreen1},
-        {"SeaGreen2", detail::col::SeaGreen2},
-        {"SeaGreen3", detail::col::SeaGreen3},
-        {"SeaGreen4", detail::col::SeaGreen4},
-        {"seashell", detail::col::seashell},
-        {"seashell1", detail::col::seashell1},
-        {"seashell2", detail::col::seashell2},
-        {"seashell3", detail::col::seashell3},
-        {"seashell4", detail::col::seashell4},
-        {"sienna", detail::col::sienna},
-        {"sienna1", detail::col::sienna1},
-        {"sienna2", detail::col::sienna2},
-        {"sienna3", detail::col::sienna3},
-        {"sienna4", detail::col::sienna4},
-        {"sky blue", detail::col::sky_blue},
-        {"SkyBlue", detail::col::SkyBlue},
-        {"SkyBlue1", detail::col::SkyBlue1},
-        {"SkyBlue2", detail::col::SkyBlue2},
-        {"SkyBlue3", detail::col::SkyBlue3},
-        {"SkyBlue4", detail::col::SkyBlue4},
-        {"slate blue", detail::col::slate_blue},
-        {"slate gray", detail::col::slate_gray},
-        {"slate grey", detail::col::slate_grey},
-        {"SlateBlue", detail::col::SlateBlue},
-        {"SlateBlue1", detail::col::SlateBlue1},
-        {"SlateBlue2", detail::col::SlateBlue2},
-        {"SlateBlue3", detail::col::SlateBlue3},
-        {"SlateBlue4", detail::col::SlateBlue4},
-        {"SlateGray", detail::col::SlateGray},
-        {"SlateGray1", detail::col::SlateGray1},
-        {"SlateGray2", detail::col::SlateGray2},
-        {"SlateGray3", detail::col::SlateGray3},
-        {"SlateGray4", detail::col::SlateGray4},
-        {"SlateGrey", detail::col::SlateGrey},
-        {"snow", detail::col::snow},
-        {"snow1", detail::col::snow1},
-        {"snow2", detail::col::snow2},
-        {"snow3", detail::col::snow3},
-        {"snow4", detail::col::snow4},
-        {"spring green", detail::col::spring_green},
-        {"SpringGreen", detail::col::SpringGreen},
-        {"SpringGreen1", detail::col::SpringGreen1},
-        {"SpringGreen2", detail::col::SpringGreen2},
-        {"SpringGreen3", detail::col::SpringGreen3},
-        {"SpringGreen4", detail::col::SpringGreen4},
-        {"steel blue", detail::col::steel_blue},
-        {"SteelBlue", detail::col::SteelBlue},
-        {"SteelBlue1", detail::col::SteelBlue1},
-        {"SteelBlue2", detail::col::SteelBlue2},
-        {"SteelBlue3", detail::col::SteelBlue3},
-        {"SteelBlue4", detail::col::SteelBlue4},
-        {"tan", detail::col::tan},
-        {"tan1", detail::col::tan1},
-        {"tan2", detail::col::tan2},
-        {"tan3", detail::col::tan3},
-        {"tan4", detail::col::tan4},
-        {"thistle", detail::col::thistle},
-        {"thistle1", detail::col::thistle1},
-        {"thistle2", detail::col::thistle2},
-        {"thistle3", detail::col::thistle3},
-        {"thistle4", detail::col::thistle4},
-        {"tomato", detail::col::tomato},
-        {"tomato1", detail::col::tomato1},
-        {"tomato2", detail::col::tomato2},
-        {"tomato3", detail::col::tomato3},
-        {"tomato4", detail::col::tomato4},
-        {"turquoise", detail::col::turquoise},
-        {"turquoise1", detail::col::turquoise1},
-        {"turquoise2", detail::col::turquoise2},
-        {"turquoise3", detail::col::turquoise3},
-        {"turquoise4", detail::col::turquoise4},
-        {"violet", detail::col::violet},
-        {"violet red", detail::col::violet_red},
-        {"VioletRed", detail::col::VioletRed},
-        {"VioletRed1", detail::col::VioletRed1},
-        {"VioletRed2", detail::col::VioletRed2},
-        {"VioletRed3", detail::col::VioletRed3},
-        {"VioletRed4", detail::col::VioletRed4},
-        {"wheat", detail::col::wheat},
-        {"wheat1", detail::col::wheat1},
-        {"wheat2", detail::col::wheat2},
-        {"wheat3", detail::col::wheat3},
-        {"wheat4", detail::col::wheat4},
-        {"white", detail::col::white},
-        {"white smoke", detail::col::white_smoke},
-        {"WhiteSmoke", detail::col::WhiteSmoke},
-        {"yellow", detail::col::yellow},
-        {"yellow green", detail::col::yellow_green},
-        {"yellow1", detail::col::yellow1},
-        {"yellow2", detail::col::yellow2},
-        {"yellow3", detail::col::yellow3},
-        {"yellow4", detail::col::yellow4},
-        {"YellowGreen", detail::col::YellowGreen}
+            {"alice blue", detail::col::alice_blue},
+            {"AliceBlue", detail::col::AliceBlue},
+            {"antique white", detail::col::antique_white},
+            {"AntiqueWhite", detail::col::AntiqueWhite},
+            {"AntiqueWhite1", detail::col::AntiqueWhite1},
+            {"AntiqueWhite2", detail::col::AntiqueWhite2},
+            {"AntiqueWhite3", detail::col::AntiqueWhite3},
+            {"AntiqueWhite4", detail::col::AntiqueWhite4},
+            {"aquamarine", detail::col::aquamarine},
+            {"aquamarine1", detail::col::aquamarine1},
+            {"aquamarine2", detail::col::aquamarine2},
+            {"aquamarine3", detail::col::aquamarine3},
+            {"aquamarine4", detail::col::aquamarine4},
+            {"azure", detail::col::azure},
+            {"azure1", detail::col::azure1},
+            {"azure2", detail::col::azure2},
+            {"azure3", detail::col::azure3},
+            {"azure4", detail::col::azure4},
+            {"beige", detail::col::beige},
+            {"bisque", detail::col::bisque},
+            {"bisque1", detail::col::bisque1},
+            {"bisque2", detail::col::bisque2},
+            {"bisque3", detail::col::bisque3},
+            {"bisque4", detail::col::bisque4},
+            {"black", detail::col::black},
+            {"blanched almond", detail::col::blanched_almond},
+            {"BlanchedAlmond", detail::col::BlanchedAlmond},
+            {"blue", detail::col::blue},
+            {"blue violet", detail::col::blue_violet},
+            {"blue1", detail::col::blue1},
+            {"blue2", detail::col::blue2},
+            {"blue3", detail::col::blue3},
+            {"blue4", detail::col::blue4},
+            {"BlueViolet", detail::col::BlueViolet},
+            {"brown", detail::col::brown},
+            {"brown1", detail::col::brown1},
+            {"brown2", detail::col::brown2},
+            {"brown3", detail::col::brown3},
+            {"brown4", detail::col::brown4},
+            {"burlywood", detail::col::burlywood},
+            {"burlywood1", detail::col::burlywood1},
+            {"burlywood2", detail::col::burlywood2},
+            {"burlywood3", detail::col::burlywood3},
+            {"burlywood4", detail::col::burlywood4},
+            {"cadet blue", detail::col::cadet_blue},
+            {"CadetBlue", detail::col::CadetBlue},
+            {"CadetBlue1", detail::col::CadetBlue1},
+            {"CadetBlue2", detail::col::CadetBlue2},
+            {"CadetBlue3", detail::col::CadetBlue3},
+            {"CadetBlue4", detail::col::CadetBlue4},
+            {"chartreuse", detail::col::chartreuse},
+            {"chartreuse1", detail::col::chartreuse1},
+            {"chartreuse2", detail::col::chartreuse2},
+            {"chartreuse3", detail::col::chartreuse3},
+            {"chartreuse4", detail::col::chartreuse4},
+            {"chocolate", detail::col::chocolate},
+            {"chocolate1", detail::col::chocolate1},
+            {"chocolate2", detail::col::chocolate2},
+            {"chocolate3", detail::col::chocolate3},
+            {"chocolate4", detail::col::chocolate4},
+            {"coral", detail::col::coral},
+            {"coral1", detail::col::coral1},
+            {"coral2", detail::col::coral2},
+            {"coral3", detail::col::coral3},
+            {"coral4", detail::col::coral4},
+            {"cornflower blue", detail::col::cornflower_blue},
+            {"CornflowerBlue", detail::col::CornflowerBlue},
+            {"cornsilk", detail::col::cornsilk},
+            {"cornsilk1", detail::col::cornsilk1},
+            {"cornsilk2", detail::col::cornsilk2},
+            {"cornsilk3", detail::col::cornsilk3},
+            {"cornsilk4", detail::col::cornsilk4},
+            {"cyan", detail::col::cyan},
+            {"cyan1", detail::col::cyan1},
+            {"cyan2", detail::col::cyan2},
+            {"cyan3", detail::col::cyan3},
+            {"cyan4", detail::col::cyan4},
+            {"dark blue", detail::col::dark_blue},
+            {"dark cyan", detail::col::dark_cyan},
+            {"dark goldenrod", detail::col::dark_goldenrod},
+            {"dark gray", detail::col::dark_gray},
+            {"dark green", detail::col::dark_green},
+            {"dark grey", detail::col::dark_grey},
+            {"dark khaki", detail::col::dark_khaki},
+            {"dark magenta", detail::col::dark_magenta},
+            {"dark olive green", detail::col::dark_olive_green},
+            {"dark orange", detail::col::dark_orange},
+            {"dark orchid", detail::col::dark_orchid},
+            {"dark red", detail::col::dark_red},
+            {"dark salmon", detail::col::dark_salmon},
+            {"dark sea green", detail::col::dark_sea_green},
+            {"dark slate blue", detail::col::dark_slate_blue},
+            {"dark slate gray", detail::col::dark_slate_gray},
+            {"dark slate grey", detail::col::dark_slate_grey},
+            {"dark turquoise", detail::col::dark_turquoise},
+            {"dark violet", detail::col::dark_violet},
+            {"DarkBlue", detail::col::DarkBlue},
+            {"DarkCyan", detail::col::DarkCyan},
+            {"DarkGoldenrod", detail::col::DarkGoldenrod},
+            {"DarkGoldenrod1", detail::col::DarkGoldenrod1},
+            {"DarkGoldenrod2", detail::col::DarkGoldenrod2},
+            {"DarkGoldenrod3", detail::col::DarkGoldenrod3},
+            {"DarkGoldenrod4", detail::col::DarkGoldenrod4},
+            {"DarkGray", detail::col::DarkGray},
+            {"DarkGreen", detail::col::DarkGreen},
+            {"DarkGrey", detail::col::DarkGrey},
+            {"DarkKhaki", detail::col::DarkKhaki},
+            {"DarkMagenta", detail::col::DarkMagenta},
+            {"DarkOliveGreen", detail::col::DarkOliveGreen},
+            {"DarkOliveGreen1", detail::col::DarkOliveGreen1},
+            {"DarkOliveGreen2", detail::col::DarkOliveGreen2},
+            {"DarkOliveGreen3", detail::col::DarkOliveGreen3},
+            {"DarkOliveGreen4", detail::col::DarkOliveGreen4},
+            {"DarkOrange", detail::col::DarkOrange},
+            {"DarkOrange1", detail::col::DarkOrange1},
+            {"DarkOrange2", detail::col::DarkOrange2},
+            {"DarkOrange3", detail::col::DarkOrange3},
+            {"DarkOrange4", detail::col::DarkOrange4},
+            {"DarkOrchid", detail::col::DarkOrchid},
+            {"DarkOrchid1", detail::col::DarkOrchid1},
+            {"DarkOrchid2", detail::col::DarkOrchid2},
+            {"DarkOrchid3", detail::col::DarkOrchid3},
+            {"DarkOrchid4", detail::col::DarkOrchid4},
+            {"DarkRed", detail::col::DarkRed},
+            {"DarkSalmon", detail::col::DarkSalmon},
+            {"DarkSeaGreen", detail::col::DarkSeaGreen},
+            {"DarkSeaGreen1", detail::col::DarkSeaGreen1},
+            {"DarkSeaGreen2", detail::col::DarkSeaGreen2},
+            {"DarkSeaGreen3", detail::col::DarkSeaGreen3},
+            {"DarkSeaGreen4", detail::col::DarkSeaGreen4},
+            {"DarkSlateBlue", detail::col::DarkSlateBlue},
+            {"DarkSlateGray", detail::col::DarkSlateGray},
+            {"DarkSlateGray1", detail::col::DarkSlateGray1},
+            {"DarkSlateGray2", detail::col::DarkSlateGray2},
+            {"DarkSlateGray3", detail::col::DarkSlateGray3},
+            {"DarkSlateGray4", detail::col::DarkSlateGray4},
+            {"DarkSlateGrey", detail::col::DarkSlateGrey},
+            {"DarkTurquoise", detail::col::DarkTurquoise},
+            {"DarkViolet", detail::col::DarkViolet},
+            {"deep pink", detail::col::deep_pink},
+            {"deep sky blue", detail::col::deep_sky_blue},
+            {"DeepPink", detail::col::DeepPink},
+            {"DeepPink1", detail::col::DeepPink1},
+            {"DeepPink2", detail::col::DeepPink2},
+            {"DeepPink3", detail::col::DeepPink3},
+            {"DeepPink4", detail::col::DeepPink4},
+            {"DeepSkyBlue", detail::col::DeepSkyBlue},
+            {"DeepSkyBlue1", detail::col::DeepSkyBlue1},
+            {"DeepSkyBlue2", detail::col::DeepSkyBlue2},
+            {"DeepSkyBlue3", detail::col::DeepSkyBlue3},
+            {"DeepSkyBlue4", detail::col::DeepSkyBlue4},
+            {"dim gray", detail::col::dim_gray},
+            {"dim grey", detail::col::dim_grey},
+            {"DimGray", detail::col::DimGray},
+            {"DimGrey", detail::col::DimGrey},
+            {"dodger blue", detail::col::dodger_blue},
+            {"DodgerBlue", detail::col::DodgerBlue},
+            {"DodgerBlue1", detail::col::DodgerBlue1},
+            {"DodgerBlue2", detail::col::DodgerBlue2},
+            {"DodgerBlue3", detail::col::DodgerBlue3},
+            {"DodgerBlue4", detail::col::DodgerBlue4},
+            {"firebrick", detail::col::firebrick},
+            {"firebrick1", detail::col::firebrick1},
+            {"firebrick2", detail::col::firebrick2},
+            {"firebrick3", detail::col::firebrick3},
+            {"firebrick4", detail::col::firebrick4},
+            {"floral white", detail::col::floral_white},
+            {"FloralWhite", detail::col::FloralWhite},
+            {"forest green", detail::col::forest_green},
+            {"ForestGreen", detail::col::ForestGreen},
+            {"gainsboro", detail::col::gainsboro},
+            {"ghost white", detail::col::ghost_white},
+            {"GhostWhite", detail::col::GhostWhite},
+            {"gold", detail::col::gold},
+            {"gold1", detail::col::gold1},
+            {"gold2", detail::col::gold2},
+            {"gold3", detail::col::gold3},
+            {"gold4", detail::col::gold4},
+            {"goldenrod", detail::col::goldenrod},
+            {"goldenrod1", detail::col::goldenrod1},
+            {"goldenrod2", detail::col::goldenrod2},
+            {"goldenrod3", detail::col::goldenrod3},
+            {"goldenrod4", detail::col::goldenrod4},
+            {"gray", detail::col::gray},
+            {"gray0", detail::col::gray0},
+            {"gray1", detail::col::gray1},
+            {"gray2", detail::col::gray2},
+            {"gray3", detail::col::gray3},
+            {"gray4", detail::col::gray4},
+            {"gray5", detail::col::gray5},
+            {"gray6", detail::col::gray6},
+            {"gray7", detail::col::gray7},
+            {"gray8", detail::col::gray8},
+            {"gray9", detail::col::gray9},
+            {"gray10", detail::col::gray10},
+            {"gray11", detail::col::gray11},
+            {"gray12", detail::col::gray12},
+            {"gray13", detail::col::gray13},
+            {"gray14", detail::col::gray14},
+            {"gray15", detail::col::gray15},
+            {"gray16", detail::col::gray16},
+            {"gray17", detail::col::gray17},
+            {"gray18", detail::col::gray18},
+            {"gray19", detail::col::gray19},
+            {"gray20", detail::col::gray20},
+            {"gray21", detail::col::gray21},
+            {"gray22", detail::col::gray22},
+            {"gray23", detail::col::gray23},
+            {"gray24", detail::col::gray24},
+            {"gray25", detail::col::gray25},
+            {"gray26", detail::col::gray26},
+            {"gray27", detail::col::gray27},
+            {"gray28", detail::col::gray28},
+            {"gray29", detail::col::gray29},
+            {"gray30", detail::col::gray30},
+            {"gray31", detail::col::gray31},
+            {"gray32", detail::col::gray32},
+            {"gray33", detail::col::gray33},
+            {"gray34", detail::col::gray34},
+            {"gray35", detail::col::gray35},
+            {"gray36", detail::col::gray36},
+            {"gray37", detail::col::gray37},
+            {"gray38", detail::col::gray38},
+            {"gray39", detail::col::gray39},
+            {"gray40", detail::col::gray40},
+            {"gray41", detail::col::gray41},
+            {"gray42", detail::col::gray42},
+            {"gray43", detail::col::gray43},
+            {"gray44", detail::col::gray44},
+            {"gray45", detail::col::gray45},
+            {"gray46", detail::col::gray46},
+            {"gray47", detail::col::gray47},
+            {"gray48", detail::col::gray48},
+            {"gray49", detail::col::gray49},
+            {"gray50", detail::col::gray50},
+            {"gray51", detail::col::gray51},
+            {"gray52", detail::col::gray52},
+            {"gray53", detail::col::gray53},
+            {"gray54", detail::col::gray54},
+            {"gray55", detail::col::gray55},
+            {"gray56", detail::col::gray56},
+            {"gray57", detail::col::gray57},
+            {"gray58", detail::col::gray58},
+            {"gray59", detail::col::gray59},
+            {"gray60", detail::col::gray60},
+            {"gray61", detail::col::gray61},
+            {"gray62", detail::col::gray62},
+            {"gray63", detail::col::gray63},
+            {"gray64", detail::col::gray64},
+            {"gray65", detail::col::gray65},
+            {"gray66", detail::col::gray66},
+            {"gray67", detail::col::gray67},
+            {"gray68", detail::col::gray68},
+            {"gray69", detail::col::gray69},
+            {"gray70", detail::col::gray70},
+            {"gray71", detail::col::gray71},
+            {"gray72", detail::col::gray72},
+            {"gray73", detail::col::gray73},
+            {"gray74", detail::col::gray74},
+            {"gray75", detail::col::gray75},
+            {"gray76", detail::col::gray76},
+            {"gray77", detail::col::gray77},
+            {"gray78", detail::col::gray78},
+            {"gray79", detail::col::gray79},
+            {"gray80", detail::col::gray80},
+            {"gray81", detail::col::gray81},
+            {"gray82", detail::col::gray82},
+            {"gray83", detail::col::gray83},
+            {"gray84", detail::col::gray84},
+            {"gray85", detail::col::gray85},
+            {"gray86", detail::col::gray86},
+            {"gray87", detail::col::gray87},
+            {"gray88", detail::col::gray88},
+            {"gray89", detail::col::gray89},
+            {"gray90", detail::col::gray90},
+            {"gray91", detail::col::gray91},
+            {"gray92", detail::col::gray92},
+            {"gray93", detail::col::gray93},
+            {"gray94", detail::col::gray94},
+            {"gray95", detail::col::gray95},
+            {"gray96", detail::col::gray96},
+            {"gray97", detail::col::gray97},
+            {"gray98", detail::col::gray98},
+            {"gray99", detail::col::gray99},
+            {"gray100", detail::col::gray100},
+            {"green", detail::col::green},
+            {"green yellow", detail::col::green_yellow},
+            {"green1", detail::col::green1},
+            {"green2", detail::col::green2},
+            {"green3", detail::col::green3},
+            {"green4", detail::col::green4},
+            {"GreenYellow", detail::col::GreenYellow},
+            {"grey", detail::col::grey},
+            {"grey0", detail::col::grey0},
+            {"grey1", detail::col::grey1},
+            {"grey2", detail::col::grey2},
+            {"grey3", detail::col::grey3},
+            {"grey4", detail::col::grey4},
+            {"grey5", detail::col::grey5},
+            {"grey6", detail::col::grey6},
+            {"grey7", detail::col::grey7},
+            {"grey8", detail::col::grey8},
+            {"grey9", detail::col::grey9},
+            {"grey10", detail::col::grey10},
+            {"grey11", detail::col::grey11},
+            {"grey12", detail::col::grey12},
+            {"grey13", detail::col::grey13},
+            {"grey14", detail::col::grey14},
+            {"grey15", detail::col::grey15},
+            {"grey16", detail::col::grey16},
+            {"grey17", detail::col::grey17},
+            {"grey18", detail::col::grey18},
+            {"grey19", detail::col::grey19},
+            {"grey20", detail::col::grey20},
+            {"grey21", detail::col::grey21},
+            {"grey22", detail::col::grey22},
+            {"grey23", detail::col::grey23},
+            {"grey24", detail::col::grey24},
+            {"grey25", detail::col::grey25},
+            {"grey26", detail::col::grey26},
+            {"grey27", detail::col::grey27},
+            {"grey28", detail::col::grey28},
+            {"grey29", detail::col::grey29},
+            {"grey30", detail::col::grey30},
+            {"grey31", detail::col::grey31},
+            {"grey32", detail::col::grey32},
+            {"grey33", detail::col::grey33},
+            {"grey34", detail::col::grey34},
+            {"grey35", detail::col::grey35},
+            {"grey36", detail::col::grey36},
+            {"grey37", detail::col::grey37},
+            {"grey38", detail::col::grey38},
+            {"grey39", detail::col::grey39},
+            {"grey40", detail::col::grey40},
+            {"grey41", detail::col::grey41},
+            {"grey42", detail::col::grey42},
+            {"grey43", detail::col::grey43},
+            {"grey44", detail::col::grey44},
+            {"grey45", detail::col::grey45},
+            {"grey46", detail::col::grey46},
+            {"grey47", detail::col::grey47},
+            {"grey48", detail::col::grey48},
+            {"grey49", detail::col::grey49},
+            {"grey50", detail::col::grey50},
+            {"grey51", detail::col::grey51},
+            {"grey52", detail::col::grey52},
+            {"grey53", detail::col::grey53},
+            {"grey54", detail::col::grey54},
+            {"grey55", detail::col::grey55},
+            {"grey56", detail::col::grey56},
+            {"grey57", detail::col::grey57},
+            {"grey58", detail::col::grey58},
+            {"grey59", detail::col::grey59},
+            {"grey60", detail::col::grey60},
+            {"grey61", detail::col::grey61},
+            {"grey62", detail::col::grey62},
+            {"grey63", detail::col::grey63},
+            {"grey64", detail::col::grey64},
+            {"grey65", detail::col::grey65},
+            {"grey66", detail::col::grey66},
+            {"grey67", detail::col::grey67},
+            {"grey68", detail::col::grey68},
+            {"grey69", detail::col::grey69},
+            {"grey70", detail::col::grey70},
+            {"grey71", detail::col::grey71},
+            {"grey72", detail::col::grey72},
+            {"grey73", detail::col::grey73},
+            {"grey74", detail::col::grey74},
+            {"grey75", detail::col::grey75},
+            {"grey76", detail::col::grey76},
+            {"grey77", detail::col::grey77},
+            {"grey78", detail::col::grey78},
+            {"grey79", detail::col::grey79},
+            {"grey80", detail::col::grey80},
+            {"grey81", detail::col::grey81},
+            {"grey82", detail::col::grey82},
+            {"grey83", detail::col::grey83},
+            {"grey84", detail::col::grey84},
+            {"grey85", detail::col::grey85},
+            {"grey86", detail::col::grey86},
+            {"grey87", detail::col::grey87},
+            {"grey88", detail::col::grey88},
+            {"grey89", detail::col::grey89},
+            {"grey90", detail::col::grey90},
+            {"grey91", detail::col::grey91},
+            {"grey92", detail::col::grey92},
+            {"grey93", detail::col::grey93},
+            {"grey94", detail::col::grey94},
+            {"grey95", detail::col::grey95},
+            {"grey96", detail::col::grey96},
+            {"grey97", detail::col::grey97},
+            {"grey98", detail::col::grey98},
+            {"grey99", detail::col::grey99},
+            {"grey100", detail::col::grey100},
+            {"honeydew", detail::col::honeydew},
+            {"honeydew1", detail::col::honeydew1},
+            {"honeydew2", detail::col::honeydew2},
+            {"honeydew3", detail::col::honeydew3},
+            {"honeydew4", detail::col::honeydew4},
+            {"hot pink", detail::col::hot_pink},
+            {"HotPink", detail::col::HotPink},
+            {"HotPink1", detail::col::HotPink1},
+            {"HotPink2", detail::col::HotPink2},
+            {"HotPink3", detail::col::HotPink3},
+            {"HotPink4", detail::col::HotPink4},
+            {"indian red", detail::col::indian_red},
+            {"IndianRed", detail::col::IndianRed},
+            {"IndianRed1", detail::col::IndianRed1},
+            {"IndianRed2", detail::col::IndianRed2},
+            {"IndianRed3", detail::col::IndianRed3},
+            {"IndianRed4", detail::col::IndianRed4},
+            {"ivory", detail::col::ivory},
+            {"ivory1", detail::col::ivory1},
+            {"ivory2", detail::col::ivory2},
+            {"ivory3", detail::col::ivory3},
+            {"ivory4", detail::col::ivory4},
+            {"khaki", detail::col::khaki},
+            {"khaki1", detail::col::khaki1},
+            {"khaki2", detail::col::khaki2},
+            {"khaki3", detail::col::khaki3},
+            {"khaki4", detail::col::khaki4},
+            {"lavender", detail::col::lavender},
+            {"lavender blush", detail::col::lavender_blush},
+            {"LavenderBlush", detail::col::LavenderBlush},
+            {"LavenderBlush1", detail::col::LavenderBlush1},
+            {"LavenderBlush2", detail::col::LavenderBlush2},
+            {"LavenderBlush3", detail::col::LavenderBlush3},
+            {"LavenderBlush4", detail::col::LavenderBlush4},
+            {"lawn green", detail::col::lawn_green},
+            {"LawnGreen", detail::col::LawnGreen},
+            {"lemon chiffon", detail::col::lemon_chiffon},
+            {"LemonChiffon", detail::col::LemonChiffon},
+            {"LemonChiffon1", detail::col::LemonChiffon1},
+            {"LemonChiffon2", detail::col::LemonChiffon2},
+            {"LemonChiffon3", detail::col::LemonChiffon3},
+            {"LemonChiffon4", detail::col::LemonChiffon4},
+            {"light blue", detail::col::light_blue},
+            {"light coral", detail::col::light_coral},
+            {"light cyan", detail::col::light_cyan},
+            {"light goldenrod", detail::col::light_goldenrod},
+            {"light goldenrod yellow", detail::col::light_goldenrod_yellow},
+            {"light gray", detail::col::light_gray},
+            {"light green", detail::col::light_green},
+            {"light grey", detail::col::light_grey},
+            {"light pink", detail::col::light_pink},
+            {"light salmon", detail::col::light_salmon},
+            {"light sea green", detail::col::light_sea_green},
+            {"light sky blue", detail::col::light_sky_blue},
+            {"light slate blue", detail::col::light_slate_blue},
+            {"light slate gray", detail::col::light_slate_gray},
+            {"light slate grey", detail::col::light_slate_grey},
+            {"light steel blue", detail::col::light_steel_blue},
+            {"light yellow", detail::col::light_yellow},
+            {"LightBlue", detail::col::LightBlue},
+            {"LightBlue1", detail::col::LightBlue1},
+            {"LightBlue2", detail::col::LightBlue2},
+            {"LightBlue3", detail::col::LightBlue3},
+            {"LightBlue4", detail::col::LightBlue4},
+            {"LightCoral", detail::col::LightCoral},
+            {"LightCyan", detail::col::LightCyan},
+            {"LightCyan1", detail::col::LightCyan1},
+            {"LightCyan2", detail::col::LightCyan2},
+            {"LightCyan3", detail::col::LightCyan3},
+            {"LightCyan4", detail::col::LightCyan4},
+            {"LightGoldenrod", detail::col::LightGoldenrod},
+            {"LightGoldenrod1", detail::col::LightGoldenrod1},
+            {"LightGoldenrod2", detail::col::LightGoldenrod2},
+            {"LightGoldenrod3", detail::col::LightGoldenrod3},
+            {"LightGoldenrod4", detail::col::LightGoldenrod4},
+            {"LightGoldenrodYellow", detail::col::LightGoldenrodYellow},
+            {"LightGray", detail::col::LightGray},
+            {"LightGreen", detail::col::LightGreen},
+            {"LightGrey", detail::col::LightGrey},
+            {"LightPink", detail::col::LightPink},
+            {"LightPink1", detail::col::LightPink1},
+            {"LightPink2", detail::col::LightPink2},
+            {"LightPink3", detail::col::LightPink3},
+            {"LightPink4", detail::col::LightPink4},
+            {"LightSalmon", detail::col::LightSalmon},
+            {"LightSalmon1", detail::col::LightSalmon1},
+            {"LightSalmon2", detail::col::LightSalmon2},
+            {"LightSalmon3", detail::col::LightSalmon3},
+            {"LightSalmon4", detail::col::LightSalmon4},
+            {"LightSeaGreen", detail::col::LightSeaGreen},
+            {"LightSkyBlue", detail::col::LightSkyBlue},
+            {"LightSkyBlue1", detail::col::LightSkyBlue1},
+            {"LightSkyBlue2", detail::col::LightSkyBlue2},
+            {"LightSkyBlue3", detail::col::LightSkyBlue3},
+            {"LightSkyBlue4", detail::col::LightSkyBlue4},
+            {"LightSlateBlue", detail::col::LightSlateBlue},
+            {"LightSlateGray", detail::col::LightSlateGray},
+            {"LightSlateGrey", detail::col::LightSlateGrey},
+            {"LightSteelBlue", detail::col::LightSteelBlue},
+            {"LightSteelBlue1", detail::col::LightSteelBlue1},
+            {"LightSteelBlue2", detail::col::LightSteelBlue2},
+            {"LightSteelBlue3", detail::col::LightSteelBlue3},
+            {"LightSteelBlue4", detail::col::LightSteelBlue4},
+            {"LightYellow", detail::col::LightYellow},
+            {"LightYellow1", detail::col::LightYellow1},
+            {"LightYellow2", detail::col::LightYellow2},
+            {"LightYellow3", detail::col::LightYellow3},
+            {"LightYellow4", detail::col::LightYellow4},
+            {"lime green", detail::col::lime_green},
+            {"LimeGreen", detail::col::LimeGreen},
+            {"linen", detail::col::linen},
+            {"magenta", detail::col::magenta},
+            {"magenta1", detail::col::magenta1},
+            {"magenta2", detail::col::magenta2},
+            {"magenta3", detail::col::magenta3},
+            {"magenta4", detail::col::magenta4},
+            {"maroon", detail::col::maroon},
+            {"maroon1", detail::col::maroon1},
+            {"maroon2", detail::col::maroon2},
+            {"maroon3", detail::col::maroon3},
+            {"maroon4", detail::col::maroon4},
+            {"medium aquamarine", detail::col::medium_aquamarine},
+            {"medium blue", detail::col::medium_blue},
+            {"medium orchid", detail::col::medium_orchid},
+            {"medium purple", detail::col::medium_purple},
+            {"medium sea green", detail::col::medium_sea_green},
+            {"medium slate blue", detail::col::medium_slate_blue},
+            {"medium spring green", detail::col::medium_spring_green},
+            {"medium turquoise", detail::col::medium_turquoise},
+            {"medium violet red", detail::col::medium_violet_red},
+            {"MediumAquamarine", detail::col::MediumAquamarine},
+            {"MediumBlue", detail::col::MediumBlue},
+            {"MediumOrchid", detail::col::MediumOrchid},
+            {"MediumOrchid1", detail::col::MediumOrchid1},
+            {"MediumOrchid2", detail::col::MediumOrchid2},
+            {"MediumOrchid3", detail::col::MediumOrchid3},
+            {"MediumOrchid4", detail::col::MediumOrchid4},
+            {"MediumPurple", detail::col::MediumPurple},
+            {"MediumPurple1", detail::col::MediumPurple1},
+            {"MediumPurple2", detail::col::MediumPurple2},
+            {"MediumPurple3", detail::col::MediumPurple3},
+            {"MediumPurple4", detail::col::MediumPurple4},
+            {"MediumSeaGreen", detail::col::MediumSeaGreen},
+            {"MediumSlateBlue", detail::col::MediumSlateBlue},
+            {"MediumSpringGreen", detail::col::MediumSpringGreen},
+            {"MediumTurquoise", detail::col::MediumTurquoise},
+            {"MediumVioletRed", detail::col::MediumVioletRed},
+            {"midnight blue", detail::col::midnight_blue},
+            {"MidnightBlue", detail::col::MidnightBlue},
+            {"mint cream", detail::col::mint_cream},
+            {"MintCream", detail::col::MintCream},
+            {"misty rose", detail::col::misty_rose},
+            {"MistyRose", detail::col::MistyRose},
+            {"MistyRose1", detail::col::MistyRose1},
+            {"MistyRose2", detail::col::MistyRose2},
+            {"MistyRose3", detail::col::MistyRose3},
+            {"MistyRose4", detail::col::MistyRose4},
+            {"moccasin", detail::col::moccasin},
+            {"navajo white", detail::col::navajo_white},
+            {"NavajoWhite", detail::col::NavajoWhite},
+            {"NavajoWhite1", detail::col::NavajoWhite1},
+            {"NavajoWhite2", detail::col::NavajoWhite2},
+            {"NavajoWhite3", detail::col::NavajoWhite3},
+            {"NavajoWhite4", detail::col::NavajoWhite4},
+            {"navy", detail::col::navy},
+            {"navy blue", detail::col::navy_blue},
+            {"NavyBlue", detail::col::NavyBlue},
+            {"old lace", detail::col::old_lace},
+            {"OldLace", detail::col::OldLace},
+            {"olive drab", detail::col::olive_drab},
+            {"OliveDrab", detail::col::OliveDrab},
+            {"OliveDrab1", detail::col::OliveDrab1},
+            {"OliveDrab2", detail::col::OliveDrab2},
+            {"OliveDrab3", detail::col::OliveDrab3},
+            {"OliveDrab4", detail::col::OliveDrab4},
+            {"orange", detail::col::orange},
+            {"orange red", detail::col::orange_red},
+            {"orange1", detail::col::orange1},
+            {"orange2", detail::col::orange2},
+            {"orange3", detail::col::orange3},
+            {"orange4", detail::col::orange4},
+            {"OrangeRed", detail::col::OrangeRed},
+            {"OrangeRed1", detail::col::OrangeRed1},
+            {"OrangeRed2", detail::col::OrangeRed2},
+            {"OrangeRed3", detail::col::OrangeRed3},
+            {"OrangeRed4", detail::col::OrangeRed4},
+            {"orchid", detail::col::orchid},
+            {"orchid1", detail::col::orchid1},
+            {"orchid2", detail::col::orchid2},
+            {"orchid3", detail::col::orchid3},
+            {"orchid4", detail::col::orchid4},
+            {"pale goldenrod", detail::col::pale_goldenrod},
+            {"pale green", detail::col::pale_green},
+            {"pale turquoise", detail::col::pale_turquoise},
+            {"pale violet red", detail::col::pale_violet_red},
+            {"PaleGoldenrod", detail::col::PaleGoldenrod},
+            {"PaleGreen", detail::col::PaleGreen},
+            {"PaleGreen1", detail::col::PaleGreen1},
+            {"PaleGreen2", detail::col::PaleGreen2},
+            {"PaleGreen3", detail::col::PaleGreen3},
+            {"PaleGreen4", detail::col::PaleGreen4},
+            {"PaleTurquoise", detail::col::PaleTurquoise},
+            {"PaleTurquoise1", detail::col::PaleTurquoise1},
+            {"PaleTurquoise2", detail::col::PaleTurquoise2},
+            {"PaleTurquoise3", detail::col::PaleTurquoise3},
+            {"PaleTurquoise4", detail::col::PaleTurquoise4},
+            {"PaleVioletRed", detail::col::PaleVioletRed},
+            {"PaleVioletRed1", detail::col::PaleVioletRed1},
+            {"PaleVioletRed2", detail::col::PaleVioletRed2},
+            {"PaleVioletRed3", detail::col::PaleVioletRed3},
+            {"PaleVioletRed4", detail::col::PaleVioletRed4},
+            {"papaya whip", detail::col::papaya_whip},
+            {"PapayaWhip", detail::col::PapayaWhip},
+            {"peach puff", detail::col::peach_puff},
+            {"PeachPuff", detail::col::PeachPuff},
+            {"PeachPuff1", detail::col::PeachPuff1},
+            {"PeachPuff2", detail::col::PeachPuff2},
+            {"PeachPuff3", detail::col::PeachPuff3},
+            {"PeachPuff4", detail::col::PeachPuff4},
+            {"peru", detail::col::peru},
+            {"pink", detail::col::pink},
+            {"pink1", detail::col::pink1},
+            {"pink2", detail::col::pink2},
+            {"pink3", detail::col::pink3},
+            {"pink4", detail::col::pink4},
+            {"plum", detail::col::plum},
+            {"plum1", detail::col::plum1},
+            {"plum2", detail::col::plum2},
+            {"plum3", detail::col::plum3},
+            {"plum4", detail::col::plum4},
+            {"powder blue", detail::col::powder_blue},
+            {"PowderBlue", detail::col::PowderBlue},
+            {"purple", detail::col::purple},
+            {"purple1", detail::col::purple1},
+            {"purple2", detail::col::purple2},
+            {"purple3", detail::col::purple3},
+            {"purple4", detail::col::purple4},
+            {"red", detail::col::red},
+            {"red1", detail::col::red1},
+            {"red2", detail::col::red2},
+            {"red3", detail::col::red3},
+            {"red4", detail::col::red4},
+            {"rosy brown", detail::col::rosy_brown},
+            {"RosyBrown", detail::col::RosyBrown},
+            {"RosyBrown1", detail::col::RosyBrown1},
+            {"RosyBrown2", detail::col::RosyBrown2},
+            {"RosyBrown3", detail::col::RosyBrown3},
+            {"RosyBrown4", detail::col::RosyBrown4},
+            {"royal blue", detail::col::royal_blue},
+            {"RoyalBlue", detail::col::RoyalBlue},
+            {"RoyalBlue1", detail::col::RoyalBlue1},
+            {"RoyalBlue2", detail::col::RoyalBlue2},
+            {"RoyalBlue3", detail::col::RoyalBlue3},
+            {"RoyalBlue4", detail::col::RoyalBlue4},
+            {"saddle brown", detail::col::saddle_brown},
+            {"SaddleBrown", detail::col::SaddleBrown},
+            {"salmon", detail::col::salmon},
+            {"salmon1", detail::col::salmon1},
+            {"salmon2", detail::col::salmon2},
+            {"salmon3", detail::col::salmon3},
+            {"salmon4", detail::col::salmon4},
+            {"sandy brown", detail::col::sandy_brown},
+            {"SandyBrown", detail::col::SandyBrown},
+            {"sea green", detail::col::sea_green},
+            {"SeaGreen", detail::col::SeaGreen},
+            {"SeaGreen1", detail::col::SeaGreen1},
+            {"SeaGreen2", detail::col::SeaGreen2},
+            {"SeaGreen3", detail::col::SeaGreen3},
+            {"SeaGreen4", detail::col::SeaGreen4},
+            {"seashell", detail::col::seashell},
+            {"seashell1", detail::col::seashell1},
+            {"seashell2", detail::col::seashell2},
+            {"seashell3", detail::col::seashell3},
+            {"seashell4", detail::col::seashell4},
+            {"sienna", detail::col::sienna},
+            {"sienna1", detail::col::sienna1},
+            {"sienna2", detail::col::sienna2},
+            {"sienna3", detail::col::sienna3},
+            {"sienna4", detail::col::sienna4},
+            {"sky blue", detail::col::sky_blue},
+            {"SkyBlue", detail::col::SkyBlue},
+            {"SkyBlue1", detail::col::SkyBlue1},
+            {"SkyBlue2", detail::col::SkyBlue2},
+            {"SkyBlue3", detail::col::SkyBlue3},
+            {"SkyBlue4", detail::col::SkyBlue4},
+            {"slate blue", detail::col::slate_blue},
+            {"slate gray", detail::col::slate_gray},
+            {"slate grey", detail::col::slate_grey},
+            {"SlateBlue", detail::col::SlateBlue},
+            {"SlateBlue1", detail::col::SlateBlue1},
+            {"SlateBlue2", detail::col::SlateBlue2},
+            {"SlateBlue3", detail::col::SlateBlue3},
+            {"SlateBlue4", detail::col::SlateBlue4},
+            {"SlateGray", detail::col::SlateGray},
+            {"SlateGray1", detail::col::SlateGray1},
+            {"SlateGray2", detail::col::SlateGray2},
+            {"SlateGray3", detail::col::SlateGray3},
+            {"SlateGray4", detail::col::SlateGray4},
+            {"SlateGrey", detail::col::SlateGrey},
+            {"snow", detail::col::snow},
+            {"snow1", detail::col::snow1},
+            {"snow2", detail::col::snow2},
+            {"snow3", detail::col::snow3},
+            {"snow4", detail::col::snow4},
+            {"spring green", detail::col::spring_green},
+            {"SpringGreen", detail::col::SpringGreen},
+            {"SpringGreen1", detail::col::SpringGreen1},
+            {"SpringGreen2", detail::col::SpringGreen2},
+            {"SpringGreen3", detail::col::SpringGreen3},
+            {"SpringGreen4", detail::col::SpringGreen4},
+            {"steel blue", detail::col::steel_blue},
+            {"SteelBlue", detail::col::SteelBlue},
+            {"SteelBlue1", detail::col::SteelBlue1},
+            {"SteelBlue2", detail::col::SteelBlue2},
+            {"SteelBlue3", detail::col::SteelBlue3},
+            {"SteelBlue4", detail::col::SteelBlue4},
+            {"tan", detail::col::tan},
+            {"tan1", detail::col::tan1},
+            {"tan2", detail::col::tan2},
+            {"tan3", detail::col::tan3},
+            {"tan4", detail::col::tan4},
+            {"thistle", detail::col::thistle},
+            {"thistle1", detail::col::thistle1},
+            {"thistle2", detail::col::thistle2},
+            {"thistle3", detail::col::thistle3},
+            {"thistle4", detail::col::thistle4},
+            {"tomato", detail::col::tomato},
+            {"tomato1", detail::col::tomato1},
+            {"tomato2", detail::col::tomato2},
+            {"tomato3", detail::col::tomato3},
+            {"tomato4", detail::col::tomato4},
+            {"turquoise", detail::col::turquoise},
+            {"turquoise1", detail::col::turquoise1},
+            {"turquoise2", detail::col::turquoise2},
+            {"turquoise3", detail::col::turquoise3},
+            {"turquoise4", detail::col::turquoise4},
+            {"violet", detail::col::violet},
+            {"violet red", detail::col::violet_red},
+            {"VioletRed", detail::col::VioletRed},
+            {"VioletRed1", detail::col::VioletRed1},
+            {"VioletRed2", detail::col::VioletRed2},
+            {"VioletRed3", detail::col::VioletRed3},
+            {"VioletRed4", detail::col::VioletRed4},
+            {"wheat", detail::col::wheat},
+            {"wheat1", detail::col::wheat1},
+            {"wheat2", detail::col::wheat2},
+            {"wheat3", detail::col::wheat3},
+            {"wheat4", detail::col::wheat4},
+            {"white", detail::col::white},
+            {"white smoke", detail::col::white_smoke},
+            {"WhiteSmoke", detail::col::WhiteSmoke},
+            {"yellow", detail::col::yellow},
+            {"yellow green", detail::col::yellow_green},
+            {"yellow1", detail::col::yellow1},
+            {"yellow2", detail::col::yellow2},
+            {"yellow3", detail::col::yellow3},
+            {"yellow4", detail::col::yellow4},
+            {"YellowGreen", detail::col::YellowGreen}
     };
 
     /**
@@ -1707,9 +2342,8 @@ namespace cturtle {
      * @return
      */
     inline Color randomColor() {
-        //TODO: This could be handled better.
-        std::default_random_engine rng(detail::epochTime());
-        std::uniform_int_distribution<int> rng_dist(0, 255);
+        static std::default_random_engine rng(detail::epochTime());
+        static std::uniform_int_distribution<int> rng_dist(0, 255);
         return Color((uint8_t) rng_dist(rng), (uint8_t) rng_dist(rng), (uint8_t) rng_dist(rng));
     }
 
@@ -1841,94 +2475,94 @@ namespace cturtle {
     };
 
     const std::unordered_map<std::string, KeyboardKey> NAMED_KEYS = {
-        {"ESC", KEY_ESC},
-        {"F1", KEY_F1},
-        {"F2", KEY_F2},
-        {"F3", KEY_F3},
-        {"F4", KEY_F4},
-        {"F5", KEY_F5},
-        {"F6", KEY_F6},
-        {"F7", KEY_F7},
-        {"F8", KEY_F8},
-        {"F9", KEY_F9},
-        {"F10", KEY_F10},
-        {"F11", KEY_F11},
-        {"F12", KEY_F12},
-        {"PAUSE", KEY_PAUSE},
-        {"1", KEY_1},
-        {"2", KEY_2},
-        {"3", KEY_3},
-        {"4", KEY_4},
-        {"5", KEY_5},
-        {"6", KEY_6},
-        {"7", KEY_7},
-        {"8", KEY_8},
-        {"9", KEY_9},
-        {"0", KEY_0},
-        {"BACKSPACE", KEY_BACKSPACE},
-        {"INSERT", KEY_INSERT},
-        {"HOME", KEY_HOME},
-        {"PAGEUP", KEY_PAGEUP},
-        {"TAB", KEY_TAB},
-        {"Q", KEY_Q},
-        {"W", KEY_W},
-        {"E", KEY_E},
-        {"R", KEY_R},
-        {"T", KEY_T},
-        {"Y", KEY_Y},
-        {"U", KEY_U},
-        {"I", KEY_I},
-        {"O", KEY_O},
-        {"P", KEY_P},
-        {"DELETE", KEY_DELETE},
-        {"END", KEY_END},
-        {"PAGEDOWN", KEY_PAGEDOWN},
-        {"CAPSLOCK", KEY_CAPSLOCK},
-        {"A", KEY_A},
-        {"S", KEY_S},
-        {"D", KEY_D},
-        {"F", KEY_F},
-        {"G", KEY_G},
-        {"H", KEY_H},
-        {"J", KEY_J},
-        {"K", KEY_K},
-        {"L", KEY_L},
-        {"ENTER", KEY_ENTER},
-        {"SHIFTLEFT", KEY_SHIFTLEFT},
-        {"Z", KEY_Z},
-        {"X", KEY_X},
-        {"C", KEY_C},
-        {"V", KEY_V},
-        {"B", KEY_B},
-        {"N", KEY_N},
-        {"M", KEY_M},
-        {"SHIFTRIGHT", KEY_SHIFTRIGHT},
-        {"ARROWUP", KEY_ARROWUP},
-        {"CTRLLEFT", KEY_CTRLLEFT},
-        {"APPLEFT", KEY_APPLEFT},
-        {"ALT", KEY_ALT},
-        {"SPACE", KEY_SPACE},
-        {"ALTGR", KEY_ALTGR},
-        {"APPRIGHT", KEY_APPRIGHT},
-        {"MENU", KEY_MENU},
-        {"CTRLRIGHT", KEY_CTRLRIGHT},
-        {"ARROWLEFT", KEY_ARROWLEFT},
-        {"ARROWDOWN", KEY_ARROWDOWN},
-        {"ARROWRIGHT", KEY_ARROWRIGHT},
-        {"PAD0", KEY_PAD0},
-        {"PAD1", KEY_PAD1},
-        {"PAD2", KEY_PAD2},
-        {"PAD3", KEY_PAD3},
-        {"PAD4", KEY_PAD4},
-        {"PAD5", KEY_PAD5},
-        {"PAD6", KEY_PAD6},
-        {"PAD7", KEY_PAD7},
-        {"PAD8", KEY_PAD8},
-        {"PAD9", KEY_PAD9},
-        {"PADADD", KEY_PADADD},
-        {"PADSUB", KEY_PADSUB},
-        {"PADMUL", KEY_PADMUL},
-        {"PADDIV", KEY_PADDIV}
+            {"ESC", KEY_ESC},
+            {"F1", KEY_F1},
+            {"F2", KEY_F2},
+            {"F3", KEY_F3},
+            {"F4", KEY_F4},
+            {"F5", KEY_F5},
+            {"F6", KEY_F6},
+            {"F7", KEY_F7},
+            {"F8", KEY_F8},
+            {"F9", KEY_F9},
+            {"F10", KEY_F10},
+            {"F11", KEY_F11},
+            {"F12", KEY_F12},
+            {"PAUSE", KEY_PAUSE},
+            {"1", KEY_1},
+            {"2", KEY_2},
+            {"3", KEY_3},
+            {"4", KEY_4},
+            {"5", KEY_5},
+            {"6", KEY_6},
+            {"7", KEY_7},
+            {"8", KEY_8},
+            {"9", KEY_9},
+            {"0", KEY_0},
+            {"BACKSPACE", KEY_BACKSPACE},
+            {"INSERT", KEY_INSERT},
+            {"HOME", KEY_HOME},
+            {"PAGEUP", KEY_PAGEUP},
+            {"TAB", KEY_TAB},
+            {"Q", KEY_Q},
+            {"W", KEY_W},
+            {"E", KEY_E},
+            {"R", KEY_R},
+            {"T", KEY_T},
+            {"Y", KEY_Y},
+            {"U", KEY_U},
+            {"I", KEY_I},
+            {"O", KEY_O},
+            {"P", KEY_P},
+            {"DELETE", KEY_DELETE},
+            {"END", KEY_END},
+            {"PAGEDOWN", KEY_PAGEDOWN},
+            {"CAPSLOCK", KEY_CAPSLOCK},
+            {"A", KEY_A},
+            {"S", KEY_S},
+            {"D", KEY_D},
+            {"F", KEY_F},
+            {"G", KEY_G},
+            {"H", KEY_H},
+            {"J", KEY_J},
+            {"K", KEY_K},
+            {"L", KEY_L},
+            {"ENTER", KEY_ENTER},
+            {"SHIFTLEFT", KEY_SHIFTLEFT},
+            {"Z", KEY_Z},
+            {"X", KEY_X},
+            {"C", KEY_C},
+            {"V", KEY_V},
+            {"B", KEY_B},
+            {"N", KEY_N},
+            {"M", KEY_M},
+            {"SHIFTRIGHT", KEY_SHIFTRIGHT},
+            {"ARROWUP", KEY_ARROWUP},
+            {"CTRLLEFT", KEY_CTRLLEFT},
+            {"APPLEFT", KEY_APPLEFT},
+            {"ALT", KEY_ALT},
+            {"SPACE", KEY_SPACE},
+            {"ALTGR", KEY_ALTGR},
+            {"APPRIGHT", KEY_APPRIGHT},
+            {"MENU", KEY_MENU},
+            {"CTRLRIGHT", KEY_CTRLRIGHT},
+            {"ARROWLEFT", KEY_ARROWLEFT},
+            {"ARROWDOWN", KEY_ARROWDOWN},
+            {"ARROWRIGHT", KEY_ARROWRIGHT},
+            {"PAD0", KEY_PAD0},
+            {"PAD1", KEY_PAD1},
+            {"PAD2", KEY_PAD2},
+            {"PAD3", KEY_PAD3},
+            {"PAD4", KEY_PAD4},
+            {"PAD5", KEY_PAD5},
+            {"PAD6", KEY_PAD6},
+            {"PAD7", KEY_PAD7},
+            {"PAD8", KEY_PAD8},
+            {"PAD9", KEY_PAD9},
+            {"PADADD", KEY_PADADD},
+            {"PADSUB", KEY_PADSUB},
+            {"PADMUL", KEY_PADMUL},
+            {"PADDIV", KEY_PADDIV}
     };
 
     /**\brief The MouseButton Enumeration holds all accepted mouse
@@ -1940,6 +2574,10 @@ namespace cturtle {
         MOUSEB_MIDDLE//Middle Mouse Button
     };
 
+    /**
+     * \brief The internally-used representation of an Input Event.
+     * Contains information pertaining to keyboard and mouse events, as well as callback pointers for either case.
+     */
     struct InputEvent {
         //True for keyboard, false for mouse
         bool type = false;
@@ -1967,32 +2605,57 @@ namespace cturtle {
      * This class is represented as a low-precision point, because
      * this data type tends to be most easily drawn to a simple canvas.*/
     struct ivec2 {
-        /**The X component.*/
-        int x;
-        /**The Y component.*/
-        int y;
+        union{
+            struct{
+                int x, y;
+            };
+            int data[2];
+        };
 
         /**\brief Empty constructor. Initializes X and Y to both equal 0.*/
         ivec2() : x(0), y(0){}
 
-        /**\brief Assignment constructor.
+        /**\brief Assignment cons tructor.
          *\param x The X value of this ivec2.
          *\param y The Y value of this ivec2.*/
         ivec2(int x, int y) : x(x), y(y) {}
-
-        /**\brief Copy constructor.
-         *\param other Another instance of ivec2 from which to derive value.*/
-        ivec2(const ivec2& other) : x(other.x), y(other.y) {}
 
         /*Array access operator overload.*/
 
         /**\brief Array access operator overload. Useful for convenience.
          *\param index The index of one of the components of this ivec2 (0..1)
          *\return A reference to the index */
-        inline int& operator[](int index) {
-            return ((int*) this)[index];
+        inline int& operator[](int index){
+            return data[index];
         }
-        
+
+        /**\brief Array access operator overload. Useful for convenience.
+         *\param index The index of one of the components of this ivec2 (0..1)
+         *\return A reference to the index */
+        inline int operator[](int index) const{
+            return data[index];
+        }
+
+        ivec2 operator+(const ivec2& other) const{
+            return {x + other.x, y + other.y};
+        }
+
+        ivec2& operator+=(const ivec2& other){
+            x += other.x;
+            y += other.y;
+            return *this;
+        }
+
+        ivec2 operator-(const ivec2& other) const{
+            return {x - other.x, y - other.y};
+        }
+
+        ivec2& operator-=(const ivec2& other){
+            x -= other.x;
+            y -= other.y;
+            return *this;
+        }
+
         /**\brief Comparison operator between this vector and the other specified.*/
         bool operator==(const ivec2& other){
             return x == other.x && y == other.y;
@@ -2015,97 +2678,64 @@ namespace cturtle {
         return ivec2((a.x + b.x) / 2, (a.y + b.y) / 2);
     }
 
+    /**\brief Performs a linear interpolation between the two specified points.
+     *\param a The first point.
+     *\param b The second point.
+     *\param progress A float between 0...1; 0 is to A, 1 is to B, 0..1 is between.
+     *\return A point between A and B.
+     */
+    inline ivec2 lerp(const ivec2& a, const ivec2& b, float progress){
+        if (progress <= 0)
+            return a;
+        else if (progress >= 1)
+            return b;
+        return {
+                static_cast<int>(std::round(progress * (b.x - a.x))) + a.x,
+                static_cast<int>(std::round(progress * (b.y - a.y))) + a.y
+        };
+    }
+
     /**\brief An alias for ivec2. Strictly for convenience and clarity.*/
     typedef ivec2 Point;
 
-    /**\brief Draws a line of variable thickness on the specified image.
-     * This needed to be implemented because the CImg display backend
-     * has no facility to draw lines with a width greater than a single pixel!
-     *\param imgRef The image on which to draw the line.
-     *\param The X component of the first coordinate.
-     *\param The Y component of the first coordinate.
-     *\param the X component of the second coordinate.
-     *\param the Y component of the second coordinate.
-     *\param c The color with which to draw the line.
-     *\param width The width of the line.*/
-    inline void drawLine(Image& imgRef, int x1, int y1, int x2, int y2, Color c, unsigned int width = 1) {
-        if (x1 == x2 && y1 == y2) {
-            return;
-        } else if (width == 1) {
-            //Just use the built-in bresenham line function
-            //to draw line with widths of 1.
-            imgRef.draw_line(x1, y1, x2, y2, c.rgbPtr());
-            return;
-        }
-        //We pretty much re-implement Bresenham's Line Algorithm here,
-        //however instead of blitting pixels at each spot we put circles,
-        //which matches the rounded thick lines present in the Python implementation.
-        //This also allows for variable width.
-        //Regrettably, this can be rather slow, but the invalidation
-        //algorithm lessens how many times this has to be done for a given scene.
-
-        const bool isSteep = (std::abs(y2 - y1) > std::abs(x2 - x1));
-        if (isSteep) {
-            std::swap(x1, y1);
-            std::swap(x2, y2);
-        }
-
-        if (x1 > x2) {
-            std::swap(x1, x2);
-            std::swap(y1, y2);
-        }
-
-        const int dx = x2 - x1;
-        const int dy = std::abs(y2 - y1);
-
-        int err = dx / 2;
-        const int ystep = (y1 < y2) ? 1 : -1;
-        int y = y1;
-
-        const int maxX = x2;
-        const int radius = static_cast<int>(std::ceil(float(width) / 2.0f));
-
-        for (int x = x1; x < maxX; x++) {
-            if (isSteep)
-                imgRef.draw_circle(y, x, radius, c.rgbPtr());
-            else
-                imgRef.draw_circle(x, y, radius, c.rgbPtr());
-            err -= dy;
-            if (err < 0) {
-                y += ystep;
-                err += dx;
-            }
-        }
-    }
-
-    /**\brief The AffineTransform class provides a myriad of functions to
+    /**\brief The Transform class provides a myriad of functions to
      *        simply transform points.
      * This class it the backbone of almost all cartesian plane math in CTurtle.
      * An adapted 3x3 matrix of the following link:
      * http://www.opengl-tutorial.org/beginners-tutorials/tutorial-3-matrices/
      */
-    class AffineTransform {
+    class Transform {
     public:
-
-        /**Constructs an empty affine transform.
+        /**Constructs an empty transform.
          * Initializes, by default, as an identity transform.*/
-        AffineTransform() {
+        Transform() {
             identity();
         }
 
         /**\brief Copy constructor.
          *\param other The other transform from which to derive value.*/
-        AffineTransform(const AffineTransform& other)
-        : value(other.value), rotation(other.rotation) {
+        Transform(const Transform& other)
+                : value(other.value), rotation(other.rotation) {
+        }
+
+        /**\brief Point and rotation. constructor.
+         * Initializes a transform with the specified rotation, a translation matching the specified point.
+         * \param point The translation of this newly constructed transform.
+         * \param rotation The rotation of this newly constructed transform.
+         */
+        Transform(const ivec2& point, float rotation = 0.0f){
+            identity();
+            setTranslation(point.x, point.y);
+            rotate(rotation);
         }
 
         /**\brief Sets this transform to an identity.
          * When you concatenate an identity transform onto another object,
          * The resulting point is the same as it would have been pre-concatenation.
-         * Such is the point of an identity transform, and is why AffineTransforms
+         * Such is the point of an identity transform, and is why Transforms
          * are initialized to have this value.
          *\return A reference to this transform. (e.g, *this)*/
-        AffineTransform& identity() {
+        Transform& identity() {
             value.fill(0.0f);
             at(0, 0) = at(1, 1) = 1.0f;
             rotation = 0;
@@ -2114,7 +2744,7 @@ namespace cturtle {
 
         /**\brief Returns a boolean indicating if this transform
          *        is equivalent in value to the one specified.*/
-        bool operator==(const AffineTransform& other) const {
+        bool operator==(const Transform& other) const {
             bool eq = true;
             for (int i = 0; i < 9; i++) {
                 if (value[i] != other.value[i]) {
@@ -2128,55 +2758,44 @@ namespace cturtle {
         /**\brief Returns the X scale of this transform.
          *\return Returns the X scale of this transform.*/
         float getScaleX() const {
-            return constAt(0, 0);
+            return at(0, 0);
         }
 
         /**\brief Returns the Y scale of this transform.
          *\return Returns the Y scale of this transform.*/
         float getScaleY() const {
-            return constAt(1, 1);
-        }
-
-        /**\brief Returns the X shear of this transform.
-         *\return Returns the X shear of this transform.*/
-        float getShearX() const {
-            return constAt(0, 1);
-        }
-
-        /**\brief Returns the Y shear of this transform.
-         *\return Returns the Y shear of this transform.*/
-        float getShearY() const {
-            return constAt(1, 0);
+            return at(1, 1);
         }
 
         /**\brief Returns the X translation of this transform.
          *\return Returns the X translation of this transform.*/
         float getTranslateX() const {
-            return constAt(0, 2);
+            return at(0, 2);
         }
 
         /**\brief Returns the Y translation of this transform.
          *\return Returns the Y translation of this transform.*/
         float getTranslateY() const {
-            return constAt(1, 2);
+            return at(1, 2);
         }
 
         /**\brief Returns rotation of this transform, in radians.
          *\return The rotation of this transform, in radians.*/
-        float getRotation() {
+        float getRotation() const {
             return rotation;
         }
 
         /**Moves this transform "forward" according to its rotation.*/
-        AffineTransform& forward(float distance) {
-            at(0, 2) += (std::cos(rotation) * distance); //x component
-            at(1, 2) += (std::sin(rotation) * distance); //y component
+        Transform& forward(float distance) {
+            //Adding the round here fixed rounding issues!
+            at(0, 2) += std::round(std::cos(rotation) * distance); //x component
+            at(1, 2) += std::round(std::sin(rotation) * distance); //y component
             return *this;
         }
 
         /*Backwards inline function.
           Just negates the input of a forward function call.*/
-        inline AffineTransform& backward(float distance) {
+        inline Transform& backward(float distance) {
             return forward(-distance);
         }
 
@@ -2184,7 +2803,7 @@ namespace cturtle {
          *\param x The number of units, or pixels, to transform on the X axis.
          *\param y The number of units, or pixels, to transform on the Y axis.
          *\return A reference to this transform. (e.g, *this)*/
-        AffineTransform& setTranslation(int x, int y) {
+        Transform& setTranslation(int x, int y) {
             at(0, 2) = static_cast<float>(x);
             at(1, 2) = static_cast<float>(y);
             return *this;
@@ -2193,13 +2812,13 @@ namespace cturtle {
         /**\brief Returns the translation of this transform as a point.
          *\return The point which represents the transform.*/
         Point getTranslation() const {
-            return Point((int) constAt(0, 2), (int) constAt(1, 2));
+            return Point((int) at(0, 2), (int) at(1, 2));
         }
 
         /**\brief Sets the X axis translation of this transform.
          *\param x The number of units, or pixels, to transform on the X axis.
          *\return A reference to this transform. (e.g, *this)*/
-        AffineTransform& setTranslationX(int x) {
+        Transform& setTranslationX(int x) {
             at(0, 2) = static_cast<float>(x);
             return *this;
         }
@@ -2207,7 +2826,7 @@ namespace cturtle {
         /**\brief Set the Y axis translation of this transform.
          *\param y The number of units, or pixels, to transform on the Y axis.
          *\return A reference to this transform. (e.g, *this)*/
-        AffineTransform& setTranslationY(int y) {
+        Transform& setTranslationY(int y) {
             at(1, 2) = static_cast<float>(y);
             return *this;
         }
@@ -2216,7 +2835,7 @@ namespace cturtle {
          *\param x The number of units, or pixels, to transform on the X axis.
          *\param y The number of units, or pixels, to transform on the Y axis.
          *\return A reference to this transform. (e.g, *this)*/
-        AffineTransform& translate(int x, int y) {
+        Transform& translate(int x, int y) {
             at(0, 2) += static_cast<float>(x) * at(0, 0) + static_cast<float>(y) * at(0, 1);
             at(1, 2) += static_cast<float>(x) * at(1, 0) + static_cast<float>(y) * at(1, 1);
             return *this;
@@ -2225,20 +2844,18 @@ namespace cturtle {
         /**\brief Rotates this transform.
          *\param theta The angle at which to rotate, in radians
          *\return A reference to this transform. (e.g, *this)*/
-        AffineTransform& rotate(float theta) {
-            //6.28319 is a full rotation in radians.
+        Transform& rotate(float theta) {
+            //6.28319 is a full rotation in radians. (360 degrees)
+            constexpr float fullcircle = 6.28319f;
 
-            // Loop rotations around in range of a full circle to avoid
-            // rounding errors with rotation when it gets real big.
-            // this just spins recursively until it gets a 
-            // manageable theta that yields the same result visually
+            //Much smarter solution than recursive spinning.
+            //Takes the modulus between what would have been the pre-fix result
+            //and a full circle, and subtracts the original rotation.
+            //This gives pretty accurate rotations rather quickly.
+            //No recursive spinning required! :)
             const float origResult = rotation + theta;
-            const float fullcircle = 6.28319f;
-
-            if (origResult > fullcircle || origResult < 0) {
-                setRotation(0);
-                return rotate(origResult > fullcircle ? origResult - fullcircle : fullcircle + origResult);
-            }
+            if (origResult > fullcircle || origResult < 0)
+                theta = std::fmod(origResult, fullcircle) - rotation;
 
             const float c = std::cos(theta);
             const float s = std::sin(theta);
@@ -2248,10 +2865,10 @@ namespace cturtle {
             const float new10 = at(1, 0) * c + at(1, 1) * s;
             const float new11 = at(1, 0) * -s + at(1, 1) * c;
 
-            at(0, 0) = new00;
-            at(0, 1) = new01;
-            at(1, 0) = new10;
-            at(1, 1) = new11;
+            at(0, 0) = new00;//x
+            at(0, 1) = new01;//y
+            at(1, 0) = new10;//rotX
+            at(1, 1) = new11;//rotY
 
             rotation += theta;
 
@@ -2261,7 +2878,7 @@ namespace cturtle {
         /**\brief Sets the rotation of this transform.
          *\param val The angle at which to rotate, in radians.
          *\return A reference to this transform. (e.g, *this)*/
-        AffineTransform& setRotation(float val) {
+        Transform& setRotation(float val) {
             if (val == rotation)
                 return *this;
             if (rotation != 0.0f)
@@ -2275,7 +2892,7 @@ namespace cturtle {
          *\param y The Y coordinate to rotate around.
          *\param theta The angle at which to rotate, in radians
          *\return A reference to this transform. (e.g, *this)*/
-        AffineTransform& rotateAround(int x, int y, float theta) {
+        Transform& rotateAround(int x, int y, float theta) {
             translate(x, y);
             rotate(theta);
             translate(-x, -y);
@@ -2285,7 +2902,7 @@ namespace cturtle {
         /**\brief Applies a scale transformation to this transform.
          *\param sx The X axis scale factor.
          *\param sy The Y axis scale factor.*/
-        AffineTransform& scale(float sx, float sy) {
+        Transform& scale(float sx, float sy) {
             at(0, 0) *= sx;
             at(0, 1) *= sy;
             at(1, 0) *= sx;
@@ -2293,33 +2910,16 @@ namespace cturtle {
             return *this;
         }
 
-        /**\brief Applies a shear transformation to this transform.
-         *\param sx The X axis shear factor.
-         *\param sy The Y axis shear factor.
+        /**\brief Concatenates this Transform with another.
+         *\param t The other Transform to concatenate with.
          *\return A reference to this transform. (e.g, *this)*/
-        AffineTransform& shear(float sx, float sy) {
-            const float new00 = at(0, 0) + (sy * at(0, 1));
-            const float new01 = at(0, 1) + (sx * at(0, 0));
-            const float new10 = at(1, 0) + (sy * at(1, 1));
-            const float new11 = at(1, 1) + (sx * at(1, 0));
-
-            at(0, 0) = new00;
-            at(0, 1) = new01;
-            at(1, 0) = new10;
-            at(1, 1) = new11;
-            return *this;
-        }
-
-        /**\brief Concatenates this AffineTransform with another.
-         *\param t The other AffineTransform to concatenate with.
-         *\return A reference to this transform. (e.g, *this)*/
-        AffineTransform& concatenate(const AffineTransform& t) {
-            const float new00 = constAt(0, 0) * t.constAt(0, 0) + constAt(0, 1) * t.constAt(1, 0);
-            const float new01 = constAt(0, 0) * t.constAt(0, 1) + constAt(0, 1) * t.constAt(1, 1);
-            const float new02 = constAt(0, 0) * t.constAt(0, 2) + constAt(0, 1) * t.constAt(1, 2) + constAt(0, 2);
-            const float new10 = constAt(1, 0) * t.constAt(0, 0) + constAt(1, 1) * t.constAt(1, 0);
-            const float new11 = constAt(1, 0) * t.constAt(0, 1) + constAt(1, 1) * t.constAt(1, 1);
-            const float new12 = constAt(1, 0) * t.constAt(0, 2) + constAt(1, 1) * t.constAt(1, 2) + constAt(1, 2);
+        Transform& concatenate(const Transform& t) {
+            const float new00 = at(0, 0) * t.at(0, 0) + at(0, 1) * t.at(1, 0);
+            const float new01 = at(0, 0) * t.at(0, 1) + at(0, 1) * t.at(1, 1);
+            const float new02 = at(0, 0) * t.at(0, 2) + at(0, 1) * t.at(1, 2) + at(0, 2);
+            const float new10 = at(1, 0) * t.at(0, 0) + at(1, 1) * t.at(1, 0);
+            const float new11 = at(1, 0) * t.at(0, 1) + at(1, 1) * t.at(1, 1);
+            const float new12 = at(1, 0) * t.at(0, 2) + at(1, 1) * t.at(1, 2) + at(1, 2);
 
             at(0, 0) = new00;
             at(0, 1) = new01;
@@ -2334,8 +2934,8 @@ namespace cturtle {
         /**\brief Creates a copy of this transform, concatenates the input, and returns it.
          *\param t The input to concatenate onto the copy of this transform.
          *\return Returns the concatenated copy of this transform.*/
-        AffineTransform copyConcatenate(const AffineTransform& t) const {
-            AffineTransform copy;
+        Transform copyConcatenate(const Transform& t) const {
+            Transform copy;
             copy.assign(*this);
             copy.concatenate(t);
             return copy;
@@ -2346,12 +2946,12 @@ namespace cturtle {
          *\param t The destination transform.
          *\param progress A progress float in range of 0 to 1.
          *\return The resulting interpolated transform.*/
-        AffineTransform lerp(const AffineTransform& t, float progress) const {
+        Transform lerp(const Transform& t, float progress) const {
             if (progress <= 0)
                 return *this;
             else if (progress >= 1)
                 return t;
-            AffineTransform result;
+            Transform result;
             for (int i = 0; i < 9; i++) {
                 result.value[i] = (progress * (t.value[i] - value[i])) + value[i];
             }
@@ -2360,7 +2960,7 @@ namespace cturtle {
 
         /**\brief Assigns the value of this transform to that of another.
          *\param t The other transform to derive value from.*/
-        void assign(const AffineTransform& t) {
+        void assign(const Transform& t) {
             value = t.value;
             rotation = t.rotation;
         }
@@ -2373,9 +2973,14 @@ namespace cturtle {
         Point transform(Point in, Point* dst = nullptr) const {
             Point temp;
             Point* dstPtr = (dst == nullptr) ? &temp : dst;
-            //Rounding seems to fix off-by-one issues in regards to rotation.
-            dstPtr->x = static_cast<int>(std::round(constAt(0, 0) * (static_cast<float>(in.x)) + constAt(0, 1) * (static_cast<float>(in.y)) + constAt(0, 2)));
-            dstPtr->y = static_cast<int>(std::round(constAt(1, 0) * (static_cast<float>(in.x)) + constAt(1, 1) * (static_cast<float>(in.y)) + constAt(1, 2)));
+
+            dstPtr->x = static_cast<int>(
+                    at(0, 0) * (static_cast<float>(in.x)) +
+                    at(0, 1) * (static_cast<float>(in.y)) + at(0, 2));
+            dstPtr->y = static_cast<int>(
+                    at(1, 0) * (static_cast<float>(in.x)) +
+                    at(1, 1) * (static_cast<float>(in.y)) + at(1, 2));
+
             return *dstPtr;
         }
 
@@ -2403,7 +3008,7 @@ namespace cturtle {
          * Retrieved from coordinate pairs using (x*3+y) as indices.*/
         typedef std::array<float, 9> mat_t;
 
-        /**The value of this affine transform.*/
+        /**The value of this transform.*/
         mat_t value;
 
         /**The rotation of this transform, in radians.*/
@@ -2419,7 +3024,7 @@ namespace cturtle {
         /**\brief Returns a copy of the float at the specified coordinate.
          *\param row The specified row from which to get a component.
          *\param col The specified column from which to get a component.*/
-        float constAt(int row, int col) const {
+        float at(int row, int col) const {
             return value[row * 3 + col];
         }
     };
@@ -2444,21 +3049,185 @@ namespace cturtle {
         return std::round(T(val * (180.0 / M_PI)));
     }
 
-    /**\brief IDrawableGeometry is a base class, intended to be
+
+    /**\brief Draws a rounded line of variable thickness on the specified image.
+     *\param imgRef The image on which to draw the line.
+     *\param The X component of the first coordinate.
+     *\param The Y component of the first coordinate.
+     *\param the X component of the second coordinate.
+     *\param the Y component of the second coordinate.
+     *\param c The color with which to draw the line.
+     *\param width The width of the line.*/
+    inline void drawLine(Image& imgRef, int x1, int y1, int x2, int y2, Color c, int width = 1) {
+        if(x1 == x2 && y1 == y2)
+            return;
+        else if (width == 1) {
+            //Just use the built-in bresenham line function
+            //to draw line with widths of 1.
+            imgRef.draw_line(x1, y1, x2, y2, c.rgbPtr());
+            return;
+        }
+
+        const int radius = width / 2;//integer division, be careful here...
+        cimg::CImg<int> lineGeom(4, 2);
+
+        //convert line (p1, p2) to polygon (p1,p2,p3,p4)... huzzah, O(1) implementation!
+        //start with two transforms (one for each coordinate pair), rotated to face towards one-another,
+        //with an added 90-degree rotation (1.571~ ish radians).
+
+        Transform transforms[2] = {
+                {{x1, y1}, std::atan2(static_cast<float>(y2) - y1, static_cast<float>(x2) - x1) + 1.57079633f},
+                {{x2, y2}, std::atan2(static_cast<float>(y1) - y2, static_cast<float>(x1) - x2) + 1.57079633f}
+        };
+        Point temp[2];
+
+        for(int i = 0; i < 2; i++){//for both of the transforms...
+            Transform& trans = transforms[i];
+
+            //move it forward and back, getting the adjacent corners of the polygon line
+            trans.forward(radius);
+            temp[0] = trans.getTranslation();
+
+            trans.backward(radius * 2);
+            temp[1] = trans.getTranslation();
+
+            //then, using a loop, copy our temporary points to the point image.
+            //the first transform (pt a) are indices 0, 1
+            //the second transform (pt b) are indices 2, 3
+            //this ensures proper cw/ccw vertex ordering.
+            for(int j = 0; j < 2; j++){
+                lineGeom((i * 2) + j, 0) = temp[j][0];
+                lineGeom((i * 2) + j, 1) = temp[j][1];
+            }
+        }
+
+        //draw the rounded caps and the fill polygon
+        imgRef.draw_circle(x1, y1, radius, c.rgbPtr());//circle 1
+        imgRef.draw_polygon(lineGeom, c.rgbPtr());//line fill
+        imgRef.draw_circle(x2, y2, radius, c.rgbPtr());//circle 2
+    }
+
+    /**
+     * \brief The Bitmap Font represents monospaced font image files that covers a range of lower ASCII.
+     * The default font, for example, covers 32-127 (e.g, char 32 to char 127). This is a particularly
+     * naive implementation of bitmap fonts, however, all basic properties required are here.
+     */
+    class BitmapFont{
+    public:
+        /**
+         * Bitmap Font constructor.
+         * @param asciiOffs
+         * @param glyphWidth
+         * @param glyphHeight
+         * @param glyphsX
+         * @param glyphsY
+         */
+        BitmapFont(const Image& img, int asciiOffs, int glyphWidth, int glyphHeight, int glyphsX, int glyphsY)
+                : asciiOffset(asciiOffs),
+                  glyphWidth(glyphWidth), glyphHeight(glyphHeight),
+                  glyphsX(glyphsX), glyphsY(glyphsY){
+
+            //fill the glyphs vector...
+            const ivec2 glyphSz = {glyphWidth, glyphHeight};
+
+            for(unsigned char c = static_cast<char>(asciiOffset); c < UINT8_MAX; c++){
+                const ivec2 min = getGlyphPosition(c);
+                const ivec2 max = (min + glyphSz) - ivec2(1, 1);
+                glyphs.push_back(img.get_crop(
+                        min.x, min.y,
+                        max.x, max.y));
+            }
+        }
+
+        /**
+         * Returns the appropriate image for the specified character.
+         * \param c character to retrieve the associated image for.
+         */
+        const Image& getGlyphImage(unsigned char c) const{
+            return glyphs.at(c - asciiOffset);
+        }
+
+        /**
+         * Returns the appropriate image for the specified character.
+         * \param c character to retrieve the associated image for.
+         */
+        inline const Image& operator[](unsigned char c) const{
+            return getGlyphImage(c);
+        }
+
+        /**
+         * \brief Returns the position of the specified character in the font image.
+         * @param c character to get the position of
+         * @return position of the character.
+         */
+        ivec2 getGlyphPosition(unsigned char c) const{
+            return {((c - asciiOffset) % glyphsX) * glyphWidth,
+                    (static_cast<int>(std::floor(float(c - asciiOffset) / (float)glyphsX))) * glyphHeight
+            };
+        }
+
+        /**
+         * \brief Returns the size of a single character glyph, in pixels.
+         * @return the width (x) and height (y) of the glyph, in pixels.
+         */
+        ivec2 getGlyphExtent() const{
+            return {glyphWidth, glyphHeight};
+        }
+
+        /**
+         * @return the total number of valid glyphs in this bitmap font.
+         */
+        int getTotalGlyphs() const{
+            return glyphsX * glyphsY;
+        }
+
+        /**
+         * @return a boolean indicating if the specified character is valid within this bitmap font.
+         */
+        bool isValid(char c) const{
+            return glyphs.size() > (c - asciiOffset) > -1;
+        }
+
+        /**
+         * \brief Returns the number of glyphs along each axis of the underlying image.
+         * @return the number of glyphs along each axis of the underlying image.
+         */
+        ivec2 getGlyphAxes() const{
+            return {glyphsX, glyphsY};
+        }
+    private:
+        std::vector<Image> glyphs;
+        int asciiOffset, glyphWidth, glyphHeight, glyphsX, glyphsY;
+    };
+
+    /**\brief AbstractDrawableObject is a base class, intended to be
      *        inherited from by all drawable objects.
      * This class just contains a simple virtual drawing function,
      * intended to be inherited from and to overload the draw function.
-     * This allows for the storage of drawable geometry in a generic fashion.*/
-    class IDrawableGeometry {
+     * This allows for the storage of drawable geometry/etc and attributes in a generic fashion.*/
+    class AbstractDrawableObject {
     public:
 
+        /**The internal fill color of the circle.*/
+        Color fillColor;
+
+        /**The outline color of the circle.*/
+        Color outlineColor;
+
+        /**The width of the outline of the circle, in pixels.*/
+        int outlineWidth = 0;
+
         /**\brief Empty default constructor.*/
-        IDrawableGeometry() {
+        AbstractDrawableObject() {
         }
 
         /**\brief Empty-- virtual-- default de-constructor.*/
-        virtual ~IDrawableGeometry() {
+        virtual ~AbstractDrawableObject() {
         }
+
+        /**\brief Returns a pointer to a copy of this drawable object, allocated with NEW.
+         * Result Must be deleted at the responsibility of the invoker.*/
+        virtual AbstractDrawableObject* copy() const = 0;
 
         /**\brief This function is intended to draw all applicable geometry
          *        in this object to the specified image, with the specified transform,
@@ -2468,12 +3237,132 @@ namespace cturtle {
          * \param t The transform at which to draw the geometry.
          * \param imgRef The canvas on which to draw.
          * \param c The color with to draw the geometry.*/
-        virtual void draw(const AffineTransform& t, Image& imgRef, Color c, int outlineWidth, Color outlineColor) = 0;
+        virtual void draw(const Transform& t, Image& imgRef) const = 0;
+    };
+
+    /**
+     * Text Alignment enumerations, used for aligning multi-line text
+     * strings when writing to screens with turtles.
+     */
+    enum TextAlign{
+        TEXT_ALIGN_LEFT,
+        TEXT_ALIGN_RIGHT,
+        TEXT_ALIGN_CENTER
+    };
+
+    /**\brief The Text class represents a basic string that is drawn on the screen.
+     * Unfortunately, Text objects are very simple. They have no notion of either text size of font.
+     */
+    class Text : public AbstractDrawableObject {
+    public:
+        /** The text to draw.*/
+        const std::string text;
+        const BitmapFont& font;
+        TextAlign alignment;
+        float scale;
+
+        Text(const std::string& text, const BitmapFont& font, Color color, float scale = 1.0f, TextAlign alignment = TEXT_ALIGN_LEFT)
+                : text(text), font(font), scale(scale), alignment(alignment){
+            fillColor = color;
+        }
+
+        Text(const Text& copy)
+                : text(copy.text), font(copy.font), scale(copy.scale), alignment(copy.alignment){
+            fillColor = copy.fillColor;
+        }
+
+        AbstractDrawableObject* copy() const{
+            return new Text(*this);
+        }
+
+        void draw(const Transform& t, Image& imgRef) const{
+            //keep track of the length of the longest line of text...
+            int longestLine = 0;
+
+            //First, split the text into lines.
+            std::string temp;
+            std::list<std::string> textLines;
+            std::stringstream ss(text);
+            while(std::getline(ss, temp, '\n')){
+                longestLine = std::max(longestLine, static_cast<int>(temp.size()));
+                textLines.push_back(temp);
+            }
+
+            //From there we can get some basic metrics.
+            const ivec2 glyphSz = font.getGlyphExtent();//the size of a single glyph
+            const int lines = textLines.size();//the total number of lines of text
+            const int strPixLen = glyphSz.x * longestLine;//the length, in pixels, of the longest line of text
+
+            //Create the temporary image.
+            //we double the temp image size to get a proper final rotation.
+            Image textImage(strPixLen * 2, (glyphSz.y * lines) * 2);
+            textImage.channels(0, 3);//force RGBA on temp image
+
+            int line = 0;
+            //blit each character into the temporary image
+
+            auto lineIter = textLines.begin();
+            while(lineIter != textLines.end()){
+                const std::string& text = *lineIter;
+
+                //text alignment with some relatively simple maths.
+                int hOffset = 0;
+
+                switch(alignment){
+                    case TEXT_ALIGN_LEFT:
+                        break;//left align left needs no horizontal offset...
+                    case TEXT_ALIGN_RIGHT:
+                        hOffset = strPixLen - (text.size() * glyphSz.x);
+                        break;
+                    case TEXT_ALIGN_CENTER:
+                        hOffset = (strPixLen / 2) - ((text.size() * glyphSz.x) / 2);
+                        break;
+                }
+
+                for(int i = 0; i < text.size(); i++) {
+                    const char curChar = text[i];
+                    if(curChar == ' ' || !font.isValid(curChar))//skip space or out-of-range characters...
+                        continue;
+
+                    const Image& tempGlyph = font[curChar];
+                    const ivec2 destPosition = {strPixLen + hOffset + (i * glyphSz.x), line * glyphSz.y};
+                    textImage.draw_image(destPosition.x, destPosition.y,
+                                         tempGlyph);
+
+                    //Apply the fill color with a multiplication filter for the size of each glyph.
+                    //for each pixel in the previously written glyph, multiply its color...
+                    for(int y = destPosition.y; y < destPosition.y + tempGlyph.height(); y++)
+                        for(int x = destPosition.x; x < destPosition.x + tempGlyph.width(); x++)
+                            for(int c = 0; c < 3; c++)
+                                textImage(x,y,c) *= (fillColor.components[c] / float(UINT8_MAX));
+                }
+
+                lineIter++;
+                line++;
+            }
+
+            //resize image according to scale
+            textImage.resize(static_cast<int>(std::round(textImage.width() * scale)),
+                             static_cast<int>(std::round(textImage.height() * scale)));
+
+            //rotate the image with nearest-neighbor interpolation
+            textImage.rotate(-toDegrees(t.getRotation()), 1, 0);
+
+            //draw the image centered
+            //rotating a doubly-sized image makes the origin of the rotation essentially halfway through the image
+            //therefore, to draw at the proper location, we need to center it relative to the transform location.
+            imgRef.draw_image(
+                    t.getTranslateX() - (textImage.width() / 2),
+                    t.getTranslateY() - (textImage.height() / 2),
+                    textImage, textImage.get_shared_channel(3), 1, 255);
+        }
+
+        ~Text(){}
     };
 
     /**\brief The Line class holds two points and the functionality to draw a line
      *       between them on a specified canvas.*/
-    class Line : public IDrawableGeometry {
+    class Line : public AbstractDrawableObject {
     public:
         /**The "From" point.
            Lines drawn with this object start here.*/
@@ -2482,43 +3371,44 @@ namespace cturtle {
            Lines drawn with this object end here.*/
         Point pointB;
 
+        /**The width of the line, in pixels.*/
         int width = 1;
 
         /**\brief Empty default constructor.*/
-        Line() {
-        }
+        Line() {}
 
         /**\brief Value constructor.
          *        merely assigns value of pointA and pointB to respective A and B.
          *\param a The "From" point.
          *\param b The "To" point.*/
-        Line(Point a, Point b, int width = 1) : pointA(a), pointB(b), width(width) {
+        Line(Point a, Point b, Color color, int width = 1) : pointA(a), pointB(b), width(width){
+            fillColor = color;
         }
 
         /**\brief Copy constructor.
          *        Merely assigns the "to" and "from" points.
          *\param other The other instance of a line from which to derive value.*/
         Line(const Line& other) : pointA(other.pointA), pointB(other.pointB), width(other.width) {
+            fillColor = other.fillColor;
+        }
+
+        AbstractDrawableObject* copy() const{
+            return new Line(*this);
         }
 
         /**\brief Empty de-constructor.*/
-        ~Line() {
-        }
+        ~Line() {}
 
-        void draw(const AffineTransform& t, Image& imgRef, Color c, int outlineWidth, Color outlineColor) {
+        void draw(const Transform& t, Image& imgRef) const{
             const Point a = t(pointA);
             const Point b = t(pointB);
-            if (a.x == b.x && a.y == b.y)
-                return; //no point in drawing a line between like points
-            drawLine(imgRef, a.x, a.y, b.x, b.y, c, width);
-            //not even going to bother implementing an outline for this
-            //how would that even look??
+            drawLine(imgRef, a.x, a.y, b.x, b.y, fillColor, width);
         }
     };
 
     /**\brief The Circle class holds a radius and total number of steps, used
      *        to generate and draw a circles geometry.*/
-    class Circle : public IDrawableGeometry {
+    class Circle : public AbstractDrawableObject {
     public:
         /**Radius, in pixels, of the geometry generated in the draw function.*/
         int radius = 10;
@@ -2533,15 +3423,27 @@ namespace cturtle {
         /**\brief Radius and step assignment constructor.
          *\param radius The radius, in pixels, of this circle.
          *\param steps The number of vertices used by this circle.*/
-        Circle(int radius, int steps) : radius(radius), steps(steps) {
+        Circle(int radius, int steps, Color fillColor, int outlineWidth = 0, Color outlineColor = Color())
+                : radius(radius), steps(steps){
+            this->fillColor = fillColor;
+            this->outlineWidth = outlineWidth;
+            this->outlineColor = outlineColor;
         }
 
         /**\brief Copy constructor.
          *\param other Another instance of a circle from which to derive value.*/
-        Circle(const Circle& other) : radius(other.radius), steps(steps) {
+        Circle(const Circle& other)
+                : radius(other.radius), steps(other.steps){
+            this->fillColor = fillColor;
+            this->outlineWidth = outlineWidth;
+            this->outlineColor = outlineColor;
         }
 
-        void draw(const AffineTransform& t, Image& imgRef, Color c, int outlineWidth, Color outlineColor) {
+        AbstractDrawableObject* copy() const{
+            return new Circle(*this);
+        }
+
+        void draw(const Transform& t, Image& imgRef) const{
             if (steps <= 0)
                 return; //no step check
             cimg::CImg<int> passPts(steps, 2);
@@ -2555,7 +3457,7 @@ namespace cturtle {
                 passPts(i, 1) = tPoint.y;
             }
 
-            imgRef.draw_polygon(passPts, c.rgbPtr());
+            imgRef.draw_polygon(passPts, fillColor.rgbPtr());
 
             if (outlineWidth > 0) {//draw outline using previously generated points.
                 //LineLoop impl
@@ -2572,54 +3474,59 @@ namespace cturtle {
      *        to draw this series to an image.
      * Please note that the contained series of points must be in either
      * clockwise(CW) or counterclockwise(CCW) order!*/
-    class Polygon : public IDrawableGeometry {
+    class Polygon : public AbstractDrawableObject {
     public:
-        /**The vector of points, drawn by this geometry's draw function.*/
         std::vector<Point> points;
 
         /**\brief Empty default constructor.*/
-        Polygon() {
-        }
+        Polygon() {}
 
         /**\brief   Initializer list instructor which assigns the points
          *          to the contents of the specified initializer list.
          *\param The initializer list from where points are retrieved.*/
-        Polygon(const std::initializer_list<Point>& init) :
-        points(init) {
+        Polygon(const std::initializer_list<Point>& init)
+                : points(init){
+            this->outlineWidth = outlineWidth;
+            this->outlineColor = outlineColor;
+            this->fillColor = fillColor;
         }
 
         /**\brief A copy constructor for another vector of points.
          *\param copy A vector from which to derive points.*/
-        Polygon(const std::vector<Point>& copy) {
-            points = copy;
+        Polygon(const std::vector<Point>& copy, Color fillColor, int outlineWidth = 0, Color outlineColor = Color())
+                : points(copy){
+            this->outlineWidth = outlineWidth;
+            this->outlineColor = outlineColor;
+            this->fillColor = fillColor;
         }
 
         /**\brief A copy constructor for another polygon.
          *\param other Another polygon from which to derive points.*/
         Polygon(const Polygon& other) {
             points = other.points;
+            fillColor = other.fillColor;
+            outlineColor = other.outlineColor;
+            outlineWidth = other.outlineWidth;
+        }
+
+        /**
+         * Returns a copy of this polygon allocated with the new keyword.
+         * Must be deleted at the responsibility of the invoker.
+         */
+        AbstractDrawableObject* copy() const{
+            return new Polygon(*this);
         }
 
         /**\brief Empty de-constructor.*/
-        ~Polygon() {
-        }
+        ~Polygon() {}
 
-        /**\brief   Transforms all points in this polygon according to the
-         *          specified transform.
-         *\param t The specified transform.*/
-        void transform(const AffineTransform& t) {
-            for (Point& p : points) {
-                p = t(p);
-            }
-        }
-
-        void draw(const AffineTransform& t, Image& imgRef, Color c, int outlineWidth, Color outlineColor) {
+        void draw(const Transform& t, Image& imgRef) const{
             if (points.empty())
                 return;
-            /*CImg is a pain in the butt and requires all polygons to be
-              passed in as an instance of the image object. Therefore,
-              we can specify an "int" image with a width of 2 (x,y) and height
-              of the total number of elements in the point vector.*/
+            /*CImg requires all polygons to be passed in as an instance of
+              the image object. Therefore, we can specify an "int" image with
+              a width of 2 (x,y) and height of the total number of
+              elements in the point vector.*/
             cimg::CImg<int> passPts(static_cast<int>(points.size()), 2);
 
             for (int i = 0; i < points.size(); i++) {
@@ -2628,7 +3535,7 @@ namespace cturtle {
                 passPts(i, 1) = pt.y;
             }
 
-            imgRef.draw_polygon(passPts, c.rgbPtr());
+            imgRef.draw_polygon(passPts, fillColor.rgbPtr());
 
             if (outlineWidth > 0) {//draw outline using previously generated points.
                 //LineLoop impl
@@ -2641,26 +3548,28 @@ namespace cturtle {
         }
     };
 
-    /**
-     * Sprites represent a selection of an image.*/
-    class Sprite : public IDrawableGeometry {
+    /**\brief The Sprite class represents a selection of a larger image.
+     * This class ignores color in favor of color provided by the image the sprite corresponds to.
+     */
+    class Sprite : public AbstractDrawableObject {
     public:
         int srcX, srcY, srcW, srcH;
-
         int drawWidth = 0;
         int drawHeight = 0;
 
-        Sprite(Image& img) : spriteImg(img) {
+        Sprite(Image& img, int outlineWidth = 0, Color outlineColor = Color()) : spriteImg(img) {
             srcX = srcY = 0;
             srcW = img.width();
             srcH = img.height();
         }
 
-        Sprite(Image& img, int srcX, int srcY, int srcW, int srcH) : spriteImg(img) {
+        Sprite(Image& img, int srcX, int srcY, int srcW, int srcH, int outlineWidth = 0, Color outlineColor = Color()) : spriteImg(img) {
             this->srcX = srcX;
             this->srcY = srcY;
             this->srcW = srcW;
             this->srcH = srcH;
+            this->outlineWidth = outlineWidth;
+            this->outlineColor = outlineColor;
         }
 
         Sprite(const Sprite& copy) : spriteImg(copy.spriteImg) {
@@ -2670,14 +3579,19 @@ namespace cturtle {
             this->srcH = copy.srcH;
             this->drawWidth = copy.drawWidth;
             this->drawHeight = copy.drawHeight;
+            this->outlineWidth = outlineWidth;
+            this->outlineColor = outlineColor;
         }
 
-        ~Sprite() {
+        ~Sprite() {}
+
+        AbstractDrawableObject* copy() const{
+            return new Sprite(*this);
         }
 
         /**Draws this Sprite.
          * Disregards the Color attribute in favor of sprites colors.*/
-        void draw(const AffineTransform& t, Image& imgRef, Color c, int outlineWidth, Color outlineColor) {
+        void draw(const Transform& t, Image& imgRef) const {
             //Vertex order is as follows for the constructed quad.
             // 0--3   3
             // | /   /|
@@ -2688,17 +3602,17 @@ namespace cturtle {
             const int halfH = drawHeight / 2;
 
             Point destPoints[4] = {
-                {-halfW, halfH}, //0
-                {-halfW, -halfH}, //1
-                {halfW, -halfH}, //2
-                {halfW, halfH} //3
+                    {-halfW, halfH}, //0
+                    {-halfW, -halfH}, //1
+                    {halfW, -halfH}, //2
+                    {halfW, halfH} //3
             };
 
             Point texturePoints[4] = {
-                {srcX, srcY},
-                {srcX, srcY + srcH},
-                {srcX + srcW, srcY},
-                {srcX + srcW, srcY + srcH}
+                    {srcX, srcY},
+                    {srcX, srcY + srcH},
+                    {srcX + srcW, srcY},
+                    {srcX + srcW, srcY + srcH}
             };
 
             /**Transforms the set of destination points.*/
@@ -2709,9 +3623,9 @@ namespace cturtle {
             //Yes, I know this isn't particularly readable.
             //But its purpose is described in an above commented illustration.
             imgRef.draw_triangle(destPoints[0][0], destPoints[0][1], destPoints[1][0], destPoints[1][1], destPoints[3][0], destPoints[3][1],
-                    spriteImg, texturePoints[0][0], texturePoints[0][1], texturePoints[1][0], texturePoints[1][1], texturePoints[3][0], texturePoints[3][1]);
+                                 spriteImg, texturePoints[0][0], texturePoints[0][1], texturePoints[1][0], texturePoints[1][1], texturePoints[3][0], texturePoints[3][1]);
             imgRef.draw_triangle(destPoints[1][0], destPoints[1][1], destPoints[2][0], destPoints[2][1], destPoints[3][0], destPoints[3][1],
-                    spriteImg, texturePoints[1][0], texturePoints[1][1], texturePoints[2][0], texturePoints[2][1], texturePoints[3][0], texturePoints[3][1]);
+                                 spriteImg, texturePoints[1][0], texturePoints[1][1], texturePoints[2][0], texturePoints[2][1], texturePoints[3][0], texturePoints[3][1]);
 
             if (outlineWidth > 0) {//draw outline using previously generated points.
                 //LineLoop impl
@@ -2727,33 +3641,48 @@ namespace cturtle {
     };
 
     /**
-     * Compound Polygons can have a variety of attachments.
+     * \brief a Compound Polygon instance is composed from a number of smaller parts, which are each derived from AbstractDrawableObject.
+     * Compound Polygons can have a variety of attachments. After the parts are assembled, the polygon is essentially read-only.
+     * These can be used to assemble several pieces of geometry into one object. These objects are self-contained
+     * and have ownership of all AbstractDrawableObject instances they contain.
      * */
-    class CompoundPolygon : public IDrawableGeometry {
-        typedef std::unique_ptr<IDrawableGeometry> unique_geom_t;
+    class CompoundPolygon : public AbstractDrawableObject {
     public:
+        //Compound Polygon components are pairs of transforms and unique pointers to other drawable objects..
+        typedef std::pair<Transform, std::unique_ptr<AbstractDrawableObject>> component_t;
 
-        CompoundPolygon() {
+        CompoundPolygon() {}
+
+        CompoundPolygon(const CompoundPolygon& copy){
+            for(const component_t& component : copy.components){
+                components.emplace_back(component.first, component.second->copy());
+            }
         }
 
-        //Polygon, Fill, Outline Width, Outline Color
-        typedef std::tuple<std::unique_ptr<IDrawableGeometry>, Color, int, Color> component_t;
+        ~CompoundPolygon(){}
 
-        /**Adds a generic component to this CompoundPolygon.*/
-        template<typename T>
-        void addcomponent(const T& t, Color fill, int outlineWidth, Color outline) {
-            components.push_back(std::make_tuple(unique_geom_t(new T(t)), fill, true, outline));
+        /**
+         * \brief Adds a component to this compound polygon.
+         * @param obj Object to copy and add.
+         * @param transform relative to root transform.
+         */
+        void addcomponent(const AbstractDrawableObject& obj, const Transform& transform = Transform()) {
+            components.emplace_back(transform, obj.copy());
+        }
+
+        /**
+         * Creates a copy of this Compound Polygon allocated with the new keyword.
+         * This must be deleted at the responsibility of the invoker.
+         */
+        AbstractDrawableObject* copy() const{
+            return new CompoundPolygon(*this);
         }
 
         /**Draws this CompoundPolygon.
          * Disregards the Color attribute in favor of the components' colors*/
-        void draw(const AffineTransform& t, Image& imgRef, Color c, int outlineWidth, Color outlineColor) {
-            for (component_t& comp : components) {
-                IDrawableGeometry* p = std::get<0>(comp).get();
-                Color fill = std::get<1>(comp);
-                int outlineWidth = std::get<2>(comp);
-                Color outlineColor = std::get<3>(comp);
-                p->draw(t, imgRef, fill, outlineWidth, outlineColor);
+        void draw(const Transform& t, Image& imgRef) const{
+            for (const component_t& comp : components) {
+                comp.second->draw(t.copyConcatenate(comp.first), imgRef);
             }
         }
     protected:
@@ -2761,11 +3690,6 @@ namespace cturtle {
     };
 
     //SECTION: TURTLE & TURTLE SCREEN
-
-    //Turtle prototype definition
-    class Turtle;
-    //TurtleScreen prototype definition
-    class TurtleScreen;
 
     /**\brief Describes the speed at which a Turtle moves and rotates.
      * \sa Turtle::getAnimMS()*/
@@ -2789,37 +3713,18 @@ namespace cturtle {
      * ranging from stamps, misc. geometry, and strings.*/
     struct SceneObject {
         /**The unique pointer to the geometry of this object.
-         *Can be null if the text string is not empty.*/
-        std::unique_ptr<IDrawableGeometry> geom;
-
-        //In the case where unownedGeom is non-null,
-        //it uses this pointer over the geom pointer.
-        //Some geometry, notably stamps, are not owned by a scene object.
-        IDrawableGeometry* unownedGeom = nullptr;
-
-        /**The color with which to draw this SceneObject.*/
-        Color fillColor;
-
-        /**The width, in pixels, of this scene object.
-         * When less-or-equal-to 0, does not draw the outline.*/
-        unsigned int outlineWidth = 0;
-
-        /**The color with which to draw the outline of this SceneObject.*/
-        Color outlineColor;
+         * MUST BE NON-NULL IF THE OBJECT IS IN A TURTLE SCREEN'S SCENE.*/
+        std::unique_ptr<AbstractDrawableObject> geom;
 
         /**The transform at which to draw this SceneObject.
          * Note that this is concatenated onto the ScreenTransform of
          * the drawing turtle's screen.*/
-        AffineTransform transform;
+        Transform transform;
 
         /**A boolean indicating if this scene object is a stamp.*/
         bool stamp = false;
-        /**The integer representing the stamp ID, if this is a stamp.*/
+        /**The integer representing the stamp ID, if this is a stamp. Valid stampids > -1*/
         int stampid = -1;
-
-        /**A text string. If non-empty, this object is a string, regardless
-          of the status of the stamp variables.*/
-        std::string text; //Stays empty unless this object is for text.
 
         /**Empty constructor.*/
         SceneObject() {
@@ -2830,39 +3735,20 @@ namespace cturtle {
          *            Please note that, after this constructor call, the SceneObject
          *            controls the life of the given pointer. Do not delete it yourself.
          *\param color The color to draw the geometry in.
-         *\param t The transform at which to draw the geometry.*/
-        SceneObject(IDrawableGeometry* geom, Color color, const AffineTransform& t) :
-        geom(geom), fillColor(color), transform(t) {
-        }
-
-        /**Stamp constructor which takes an ID.
-         * Please note that, when it comes to stamps, this object DOES NOT OWN
-         * the drawable data.
-         *\param geom The geometry of the stamp. Follows the
-         *            same rules as the Geometry constructor.
-         *\param color The color with which to draw the stamp.
-         *\param t The transform at which to draw the stamp.
-         *\param stampid The ID of the stamp this object is related to..*/
-        SceneObject(IDrawableGeometry* geom, Color color, const AffineTransform& t, int stampid) :
-        unownedGeom(geom), fillColor(color), transform(t), stamp(true), stampid(stampid) {
-        }
-
-        /**String constructor.
-         * Please note that strings are not subject to rotation, scaling, or shear!
-         *\param text The text content of this object.
-         *\param color The color with which to daraw this string.
-         *\param t The transform at which to draw this string.*/
-        SceneObject(const std::string& text, Color color, const AffineTransform& t) :
-        text(text), fillColor(color), transform(t) {
+         *\param t The transform at which to draw the geometry.
+         *\param stampid The ID of the stamp this object is related to.*/
+        SceneObject(AbstractDrawableObject* geom, const Transform& t, int stampid = -1) :
+                geom(geom), transform(t), stamp(stampid>-1), stampid(stampid) {
         }
     };
 
-    /**Pen State structure.
-     * Holds all pen attributes.*/
+    /**\brief The Pen State structure Holds all pen attributes, which are grouped in this way to allow stack-based
+     * undo for Turtle objects. Instances of this object are self-contained, and
+     * has ownership of all objects and memory referenced by itself.*/
     struct PenState {
         /**The transform of the pen.
          * holds position, rotation, and scale of the turtle.*/
-        AffineTransform transform;
+        Transform transform;
         /**The movement speed of the turtle, in range of 0...10*/
         float moveSpeed = TS_NORMAL;
         /**Whether or not the turtle's "tail" (or pen) is down.*/
@@ -2879,9 +3765,9 @@ namespace cturtle {
         Color fillColor = Color("black");
         /**The total number of objects in the screen's object stack
          * prior to the addition of this state->*/
-        unsigned long int objectsBefore = 0;
+        size_t objectsBefore = 0;
         /**The turtle's cursor geometry. MUST ASSIGN BEFORE USE.*/
-        IDrawableGeometry* cursor = nullptr;
+        std::unique_ptr<AbstractDrawableObject> cursor = nullptr;
         /**The current stamp ID.*/
         int curStamp = 0;
         /**A boolean indicating if this turtle is visible.*/
@@ -2889,9 +3775,7 @@ namespace cturtle {
         /**A float for cursor tilt (e.g, rotation appleid to the cursor itself)*/
         float cursorTilt = 0;
 
-        PenState() {
-        }
-
+        PenState(){}
         PenState(const PenState& copy) {
             transform = copy.transform;
             moveSpeed = copy.moveSpeed;
@@ -2901,16 +3785,234 @@ namespace cturtle {
             filling = copy.filling;
             penColor = copy.penColor;
             fillColor = copy.fillColor;
-            cursor = copy.cursor;
+            cursor.reset(copy.cursor.get() ? copy.cursor->copy() : nullptr);
             curStamp = copy.curStamp;
             visible = copy.visible;
             cursorTilt = copy.cursorTilt;
             objectsBefore = copy.objectsBefore;
         }
+
+        PenState& operator=(const PenState& copy){
+            transform = copy.transform;
+            moveSpeed = copy.moveSpeed;
+            tracing = copy.tracing;
+            angleMode = copy.angleMode;
+            penWidth = copy.penWidth;
+            filling = copy.filling;
+            penColor = copy.penColor;
+            fillColor = copy.fillColor;
+            cursor.reset(copy.cursor.get() ? copy.cursor->copy() : nullptr);
+            curStamp = copy.curStamp;
+            visible = copy.visible;
+            cursorTilt = copy.cursorTilt;
+            objectsBefore = copy.objectsBefore;
+            return *this;
+        }
+    };
+
+    /**\brief ScreenMode Enumeration, used to decide orientation of the drawing calls
+     *        on TurtleScreens.
+     *\sa TurtleScreen::mode(ScreenMode)*/
+    enum ScreenMode {
+        SM_STANDARD,
+        SM_LOGO//,
+        //        SM_WORLD
+    };
+    //I'm leaving out SM_WORLD. Adding it would really require more work than I have time for.
+
+    //Turtle class prototype so we can go ahead and define abstract turtle screen type.
+    class Turtle;
+
+    /**
+     * \brief The AbstractTurtleScreen class is the abstract type for most turtle functionality.
+     * It intentionally excludes all input/output functionality, allowing
+     * for two intended derivates: an "interactive" screen, vs an "offline rendering" screen.
+     * The Turtle class doesn't care which one it gets attached to.
+     */
+    class AbstractTurtleScreen{
+    public:
+        virtual ~AbstractTurtleScreen() = default;
+
+        /**
+         * Sets the tracer setting for this window.
+         */
+        virtual void tracer(int countmax, unsigned int delayMS = 10) = 0;
+
+        /**
+         * Returns the width of the window, in pixels.
+         */
+        virtual int window_width() const = 0;
+
+        /**
+         * Returns the height of the window, in pixels.
+         */
+        virtual int window_height() const = 0;
+
+        /**
+         * Returns the current background color.
+         */
+        virtual Color bgcolor() const = 0;
+
+        /**
+         * Sets the current background color.
+         */
+        virtual void bgcolor(const Color& c) = 0;
+
+        /**
+         * Sets the current screen mode.
+         */
+        virtual void mode(ScreenMode mode) = 0;
+
+        /**
+         * Returns the current screen mode.
+         */
+        virtual ScreenMode mode() const = 0;
+        /**
+         * Clears the screen.
+         */
+        virtual void clearscreen() = 0;
+
+        /**Alias for clearscreen function
+         *\sa clearscreen()*/
+        inline void clear() {
+            clearscreen();
+        }
+
+        /**Resets all turtles belonging to this screen to their original state.*/
+        virtual void resetscreen() = 0;
+
+        /**Resets all turtles belonging to this screen to their original state.*/
+        inline void reset() {
+            resetscreen();
+        }
+
+        /**
+         * @return a boolean indicating if this turtle screen supports live animation.
+         * "Live animation" is regarded as the frames of animation that encompass
+         * movement over space.
+         */
+        virtual bool supports_live_animation() const = 0;
+
+        virtual ivec2 screensize(Color& bg) = 0;
+        //code-smell from python->c++, considering separation of functionality
+
+        virtual ivec2 screensize() = 0;
+        virtual void update(bool invalidateDraw = false, bool processInput = true) = 0;
+        virtual void delay(unsigned int ms) = 0;
+        virtual unsigned int delay() = 0;
+
+        /**
+         * Closes this turtle screen.
+         */
+        virtual void bye() = 0;
+
+        virtual Image& getcanvas() = 0;
+
+        virtual bool isclosed() = 0;
+
+        virtual void redraw(bool invalidate = false) = 0;
+
+        /**
+         * @brief Calculates and returns the root-level screen transformation.
+         */
+        virtual Transform screentransform() const = 0;
+
+        /**
+         * @brief Adds the specified turtle to this screen.
+         * The turtle cannot belong to other screens, as
+         * that would break ownership responsibility.
+         */
+        virtual void add(Turtle& turtle) = 0;
+
+        /**
+         * @brief Returns a read-write reference to the list of scene objects currently residing on this screen.
+         * @return the list of scene objects currently residing on this screen.
+         */
+        virtual std::list<SceneObject>& getScene() = 0;
+
+        /**
+         * @brief Returns a read-write reference to the registered shape with the specified name. 
+         * @param name of the shape
+         * @return read-write reference to the associated shape
+         */
+        virtual AbstractDrawableObject& shape(const std::string& name) = 0;
+
+        /**
+         * @brief Returns a read-only reference to a previously loaded bitmap font.
+         * @return a previously loaded font by its specified name.
+         */
+        virtual const BitmapFont& font(const std::string& name) const = 0;
+    protected:
+        /**
+         * Decodes the default font image from memory. The font is encoded
+         * as 1 bit per pixel (on/off) for simplicity, and is relatively
+         * easily decoded through bit-shifting.
+         * 
+         * The loading of this was delegated to the AbstractTurtleScreen class
+         * simply because all derived classes should have an idea of their
+         * own internal states, however they will ALL have these managed states,
+         * and thus ALL derived classes will need to call this function at some point
+         * while performing default initialization.
+         * @return the decoded default font image.
+         */
+        Image decodeDefaultFont() const{
+            Image img(DEFAULT_FONT_PIXELS_WIDTH, DEFAULT_FONT_PIXELS_HEIGHT);
+            img.channels(0, 3);//force RGBA
+            for(int pixId = 0; pixId < DEFAULT_FONT_PIXELS_LEN; pixId++){
+                const unsigned int decodeVal = DEFAULT_FONT_PIXELS[pixId];
+                // 8 integers per row of pixels (8*32=256)
+                const int pixY = pixId / 8;
+                const int pixOffsX = (pixId % 8) * 32;//offset of every pixel for the current integer.
+                for(int i = 0; i < 32; i++){ // for every bit in the unsigned integer...
+                    const int pixX = pixOffsX + (31 - i);//31 due to number of bits in unsigned int...
+                    //get i'th pixel in the integer by bitmask and multiply
+                    const uint8_t pixel = ((decodeVal >> i) & 1) * 255;
+                    for(int c = 0; c < 4; c++)
+                        img(pixX, pixY, 0, c) = pixel;
+                }
+            }
+            return img;
+        }
+
+        /*The default shapes that screens initialize with.*/
+        std::unordered_map<std::string, Polygon> shapes = {
+                //counterclockwise coordinates.
+                {"triangle",
+                        Polygon{
+                                {0, 0},
+                                {-5, 5},
+                                {5, 5}}},
+                {"square",
+                        Polygon{
+                                {-5, -5},
+                                {-5, 5},
+                                {5, 5},
+                                {5, -5}}},
+                {"indented triangle",
+                        Polygon{
+                                //CCW
+                                {0, 0},
+                                {-5, 10},
+                                {0, 8},
+                                {5, 10}}},
+                {"arrow",
+                        Polygon{
+                                {0, 0},
+                                {-5, 5},
+                                {-3, 5},
+                                {-3, 10},
+                                {3, 10},
+                                {3, 5},
+                                {5, 5}}}
+        };
+
+        //Abstract class. Private constructor only allows
+        //for derivative classes to be instantiated.
+        AbstractTurtleScreen(){};
     };
 
     /**
-     *  The Turtle Class
+     * \brief The Turtle Class
      * Symbolically represents a turtle that runs around a screen that has a
      * paint brush attached to its tail. The tail can be in two states; up and down.
      * As the turtle moves forwards, backwards, left, and right, it can draw
@@ -2919,15 +4021,46 @@ namespace cturtle {
      *
      * \sa TurtleScreen
      */
-    class Turtle {
+    class Turtle{
     public:
-        /*Implemented in source impl. file*/
-        Turtle(TurtleScreen& scr);
+        /**
+         * \brief The turtle constructor. Turtles are attached to whatever screen they are constructed with
+         */
+        Turtle(AbstractTurtleScreen& scr){
+            screen = &scr;
+            screen->add(*this);
+            reset();
+        }
+
+        /**
+         * \brief Turtles are not trivially copyable. The copy constructor is explicitly disallowed. 
+         */
+        Turtle(const Turtle&) = delete;
+
+        /**
+         * \brief Turtles are not trivially moved. The move constructor is explicitly disallowed.
+         */
+        Turtle(Turtle&& mv) = delete;
+
+        /**
+         * \brief Turtles are not trivially moved. The copy operator is explicitly disallowed.
+         */
+        Turtle& operator=(const Turtle&) = delete;
+
+        /**
+         * \brief Turtles are not trivially moved. The move operator is explicitly disallowed.
+         */
+        Turtle& operator=(Turtle&& turtle) = delete;
 
         //Motion
 
-        /**\brief Moves the turtle forward the specified number of pixels.*/
-        void forward(int pixels);
+        /**\brief Moves the turtle forward the specified number of pixels.
+         * \param pixels total number of pixels to move.*/
+        void forward(int pixels){
+            if (screen == nullptr)
+                return;
+            travelTo(Transform(*transform).forward(static_cast<float>(pixels)));
+        }
 
         /**\copydoc forward(int)*/
         inline void fd(int pixels) {
@@ -2935,7 +4068,11 @@ namespace cturtle {
         }
 
         /**\brief Moves the turtle backward the specified number of pixels.*/
-        void backward(int pixels);
+        void backward(int pixels){
+            if (screen == nullptr)
+                return;
+            travelTo(Transform(*transform).backward(static_cast<float>(pixels)));
+        }
 
         /**\copydoc backward(int)*/
         inline void bk(int pixels) {
@@ -2954,7 +4091,11 @@ namespace cturtle {
          * \sa degrees()
          * \sa radians()
          * \sa TurtleScreen::mode()*/
-        void right(float amt);
+        void right(float amt){
+            amt = state->angleMode ? -amt : -toRadians(amt);
+            //Flip angle orientation based on screen mode.
+            travelTo(Transform(*transform).rotate(amt));
+        }
 
         /**\copydoc right(float)*/
         inline void rt(float angle) {
@@ -2968,7 +4109,11 @@ namespace cturtle {
          * \sa degrees()
          * \sa radians()
          * \sa TurtleScreen::mode()*/
-        void left(float amt);
+        void left(float amt){
+            amt = state->angleMode ? amt : toRadians(amt);
+            //Flip angle orientation based on screen mode.
+            travelTo(Transform(*transform).rotate(amt));
+        }
 
         /**\copydoc left(float)*/
         inline void lt(float angle) {
@@ -2976,18 +4121,20 @@ namespace cturtle {
         }
 
         /**\brief Sets the transform location of this turtle.*/
-        void goTo(int x, int y);
+        void goTo(int x, int y){
+            travelTo(Transform(*transform).setTranslation(x,y));
+        }
 
         /**\brief Sets the transform location of this turtle.*/
         inline void goTo(const Point& pt){
             goTo(pt.x, pt.y);
         }
-        
+
         /**\copydoc goTo(int,int)*/
         inline void setpos(int x, int y) {
             goTo(x, y);
         }
-        
+
         /**\copydoc goTo(int,int)*/
         inline void setpos(const Point& pt){
             goTo(pt.x, pt.y);
@@ -2997,16 +4144,21 @@ namespace cturtle {
         inline void setposition(int x, int y) {
             goTo(x, y);
         }
-        
+
         /**\copydoc goTo(int,int)*/
         inline void setposition(const Point& pt){
             goTo(pt.x, pt.y);
         }
 
         /**\brief Sets the X-axis transform location of this turtle.*/
-        void setx(int x);
+        void setx(int x){
+            travelTo(Transform(*transform).setTranslationX(x));
+        }
+
         /**\brief Sets the Y-axis transform location of this turtle.*/
-        void sety(int y);
+        void sety(int y){
+            travelTo(Transform(*transform).setTranslationY(y));
+        }
 
         /**
          * Adds a "dumb" translation to the current turtle's transform.
@@ -3014,7 +4166,16 @@ namespace cturtle {
          * @param x component of coordinate pair
          * @param y component of coordinate pair.
          */
-        void shift(int x, int y);
+        void shift(int x, int y){
+            travelTo(Transform(*transform).setTranslation(transform->getTranslateX()+x, transform->getTranslateY()+y));
+        }
+
+        /**
+         * @return a constant reference to the current state of this turtle.
+         */
+        const PenState& penstate() const{
+            return *state;
+        }
 
         /**\brief Sets the rotation of this turtle.
          * The unit by which the input is specified is determined by the current
@@ -3023,18 +4184,44 @@ namespace cturtle {
          * \sa degrees()
          * \sa radians()
          * \sa TurtleScreen::mode()*/
-        void setheading(float angle);
+        void setheading(float amt){
+            //Swap to correct unit if necessary.
+            amt = state->angleMode ? amt : toRadians(amt);
+            //Flip angle orientation based on screen mode.
+            amt = (screen != nullptr) ? screen->mode() == SM_STANDARD ? amt : -amt : amt;
+            travelTo(Transform(*transform).setRotation(amt));
+        }
+
+        /**
+         * Rotates the turtle to face the specified point.
+         * @param x coordinate along the x axis to face
+         * @param y coordinate along the y axis to face
+         * \sa face(point)
+         */
+        inline void face(int x, int y){
+            setheading(towards(x,y) - heading());
+        }
+
+        /**
+         * Rotates the turtle to face the specified point.
+         * @param pt point to face towards
+         * \sa face(x, y)
+         */
+        inline void face(const Point& pt){
+            setheading(towards(pt) - heading());
+        }
 
         /**
          * Returns the distance between this turtle and the given coordinate pair.
-         * @param x
-         * @param y
-         * @return 
+         * @param x X axis
+         * @param y Y axis
+         * @return distance between turtle position and coordinate pair.
+         * \sa distance(point)
          */
         int distance(int x, int y){
             return cturtle::distance(transform->getTranslation(), {x,y});
         }
-        
+
         /**
          * Returns the distance between this turtle and the given point.
          * @param pt
@@ -3044,32 +4231,42 @@ namespace cturtle {
         int distance(const Point& pt){
             return cturtle::distance(transform->getTranslation(), pt);
         }
-        
+
         /**\copydoc setheading(float)*/
         inline void seth(float angle) {
             setheading(angle);
         }
-        
+
         /**
          * \brief Returns the angle between the line of the current turtle transform to the given point.
          * @param x component of coordinate pair
          * @param y component of coordinate pair.
-         * @return 
+         * @return
          */
-        float towards(int x, int y);
+        float towards(int x, int y){
+            float amt = std::atan2(static_cast<float>(y) - transform->getTranslateY(), static_cast<float>(x) - transform->getTranslateX());
+
+            //6.28319 is a full rotation in radians...
+            if(toDegrees(amt) < 0)
+                amt = 6.28319f + amt;
+
+            //convert to degrees if necessary.
+            amt = state->angleMode ? amt : toDegrees(amt);
+            return amt + heading();
+        }
 
         /**
          * \brief Returns the angle between the line of the current turtle transform to the given point.
          * @param pt
-         * @return 
+         * @return
          */
         inline float towards(const Point& pt){
             return towards(pt.x, pt.y);
         }
-        
+
         /**
-         * Returns the heading of the Turtle (e.g, its current rotation).
-         * @return
+         * \brief Returns the heading of the Turtle (e.g, its current rotation).
+         * @return the heading of the Turtle (e.g, its current rotation)
          */
         inline float heading() {
             return state->angleMode ? transform->getRotation() : toDegrees(transform->getRotation());
@@ -3082,13 +4279,18 @@ namespace cturtle {
          * Otherwise, if it is set to "logo", The turtle face upwards and positive
          * angles are clockwise.
          * \sa TurtleScreen::mode()*/
-        void home();
+        void home(){
+            travelTo(Transform());//set transform to identity, more-or-less...
+        }
 
         /**\brief Adds a circle to the screen.
          *\param radius The radius, in pixels, of the circle.
-         *\param steps The "quality" of the circle. Higher is slow but looks better.
+         *\param steps The "quality" of the circle. Higher is slow but looks better. Use with low numbers for N-sided shapes.
          *\param color The color of the circle.*/
-        void circle(int radius, int steps, Color color);
+        void circle(int radius, int steps, Color color){
+            pushGeometry(*transform, new Circle(radius, steps, color));
+            updateParent();
+        }
 
         /**\brief Adds a circle to the screen.
          * Default parameters are circle with a radius of 30 with 15 steps.
@@ -3109,7 +4311,35 @@ namespace cturtle {
          * If the input is false but the prior state is true, a SceneObject
          * is put on the screen in the shape of the previously captured points.
          *\param state Whether or not the turtle is filling a polygon.*/
-        void fill(bool state);
+        void fill(bool val){
+            if(state->filling && !val) {
+                //Add the fill polygon
+                screen->getScene().emplace_back(new Polygon(fillAccum.points, state->fillColor), Transform());
+                objects.push_back(std::prev(screen->getScene().end(), 1));
+
+                //Add all trace lines created when tracing out the fill polygon.
+                if(!fillLines.empty()) {
+                    //for each line we've created when having the pen down, and have been tracing a shape
+                    for(Line& lineInfo : fillLines) {
+                        screen->getScene().emplace_back(lineInfo.copy(), Transform());
+                        objects.push_back(std::prev(screen->getScene().end(), 1));
+                    }
+                    fillLines.clear();
+                }
+
+                fillAccum.points.clear();
+                updateParent(false, false);
+            }
+            state->filling = val;
+        }
+
+        /**
+         * \brief Returns a boolean indicating if this turtle is currently filling a shape.
+         * \return a boolean indicating if this turtle is currently filling a shape.
+         */
+        inline bool filling() const{
+            return penstate().filling;
+        }
 
         /**\brief Begins filling a polygon.
          *\sa fill(bool)*/
@@ -3128,6 +4358,7 @@ namespace cturtle {
         void fillcolor(Color c) {
             pushState();
             state->fillColor = c;
+            updateParent(false, false);
         }
 
         /**\brief Returns the fill color of this turtle.
@@ -3140,37 +4371,131 @@ namespace cturtle {
          * Uses the current filling color.
          *\param text The text to write.
          *\sa fillcolor(color)*/
-        void write(const std::string& text);
+        void write(const std::string& text){
+            if(text.empty())
+                return;
+            pushText(*transform, state->fillColor, screen->font(DEFAULT_FONT), text, 1.0f);
+            updateParent(false, false);
+        }
+
+        /**Writes the specified string to the screen.
+         * Uses the specified color.
+         *\param text The text to write.
+         *\param font The font name to use. Uses "default" font by default. Must be registered to parent screen.
+         *\param color The color to write the text in.
+         *\param scale The scale to draw the text at. This is relative to the size of the used font.
+         *\param alignment The horizontal alignment of text. This is specifically useful for multi-line strings.
+         *\sa fillcolor(color)*/
+        void write(const std::string& text, const std::string& font, Color color = {"white"}, float scale = 1.0f, TextAlign alignment = TEXT_ALIGN_LEFT){
+            if(text.empty())
+                return;
+            pushText(*transform, color, screen->font(font), text, scale, alignment);
+            updateParent(false, false);
+        }
 
         /**\brief Puts the current shape of this turtle on the screen
          *        with the current fill color and the outline of the shape.
          *\return The stamp ID of the put stamp.*/
-        int stamp();
+        int stamp(){
+            pushStamp(*transform, state->cursor.get()->copy());
+            return state->curStamp;
+        }
+
         /**\brief Removes the stamp with the specified ID.*/
-        void clearstamp(int stampid);
+        void clearstamp(int stampid){
+            auto iter = objects.begin(); //iterator which holds an iterator to the screen's scene list.
+
+            while (iter != objects.end()) {
+                auto& objIter = *iter;
+                if (objIter->stamp && objIter->stampid == stampid) {
+                    break;
+                }
+                iter++;
+            }
+
+            if (iter != objects.end()) {
+                objects.erase(iter);
+
+                if (screen != nullptr) {
+                    screen->getScene().erase(*iter);
+                }
+            }
+
+            updateParent(true,false);
+        }
+
         /**\brief Removes all stamps with an ID less than that which is specified.
          *        If the specified stampid is less than 0, it removes ALL stamps.*/
-        void clearstamps(int stampid = -1);
+        void clearstamps(int stampid = -1){
+            typedef decltype(objects.begin()) iter_t;
+
+            std::list<iter_t> removals;
+
+            iter_t iter = objects.begin();
+            while (iter != objects.end()) {
+                auto& objIter = *iter;
+                if (stampid < 0 ? objIter->stamp : (objIter->stamp && objIter->stampid <= stampid)) {
+                    removals.push_back(iter);
+                }
+                iter++;
+            }
+
+            for (iter_t& iter : removals) {
+                screen->getScene().erase(*iter);
+                objects.erase(iter);
+            }
+
+            updateParent(true, false);
+        }
 
         /**\brief Sets the shape of this turtle.
          *\param p The polygon to derive shape geometry from.*/
-        void shape(const IDrawableGeometry& p) {
+        void shape(const AbstractDrawableObject& p) {
             pushState();
-            state->cursor = &const_cast<IDrawableGeometry&> (p);
+            state->cursor.reset(p.copy());
             updateParent(false, false);
         }
 
         /**\brief Sets the shape of this turtle from the specified shape name.
          *\param name The name of the shape to set.*/
-        void shape(const std::string& name);
+        void shape(const std::string& name){
+            pushState();
+            state->cursor.reset((screen->shape(name).copy()));
+            updateParent(false, false);
+        }
 
         /**\brief Returns the shape of this turtle.*/
-        const IDrawableGeometry& shape() {
+        const AbstractDrawableObject& shape() {
             return *state->cursor;
         }
 
         /**\brief Undoes the previous action of this turtle.*/
-        bool undo();
+        bool undo(bool try_redraw = true){
+            //total objects on the state stack prior to
+            const unsigned long int totalBefore = state->objectsBefore;
+
+            if (stateStack.size() >= 2)
+                travelBack(); //Travel back if stack size >= 2
+
+            //If we can't pop the state, break early.
+            if (!popState()) {
+                return false;
+            }
+
+            auto begin = std::prev(objects.end(), (totalBefore - state->objectsBefore));
+            auto iter = begin;
+
+            while (iter != objects.end()) {
+                screen->getScene().erase(*iter);
+                iter++;
+            }
+
+            objects.erase(begin, objects.end());
+
+            //Will invalidate the whole screen due to object removal, but we allow the option to not.
+            updateParent(try_redraw, false);
+            return true;
+        }
 
         /**\brief Set, or disable, the undo buffer.
          *\param size The size of the undo buffer.*/
@@ -3202,18 +4527,29 @@ namespace cturtle {
             return state->moveSpeed;
         }
 
-        /**\brief Applies a rotation to the */
-        void tilt(float angle);
+        /**\brief Applies a rotation to the turtle's cursor.*/
+        void tilt(float amt){
+            amt = state->angleMode ? amt : toRadians(amt);
+            //Flip angle orientation based on screen mode.
+            amt = screen->mode() == SM_STANDARD ? amt : -amt;
+            pushState();
+            state->cursorTilt += amt;
+            updateParent(false, false);
+        }
 
         /**\brief Returns the rotation of the cursor. Not the heading,
          *        or the angle at which the forward function will move.*/
-        float tilt() {
+        float tilt() const {
             return state->angleMode ? state->cursorTilt : toDegrees(state->cursorTilt);
         }
 
         /**\brief Set whether or not the turtle is being shown.
          *\param state True when showing, false othewise.*/
-        void setshowturtle(bool state);
+        void setshowturtle(bool val){
+            pushState();
+            state->visible = val;
+            updateParent(false, false);
+        }
 
         /**\brief Shows the turtle.
          *        Equivalent to calling setshowturtle(true).
@@ -3229,7 +4565,10 @@ namespace cturtle {
         }
 
         /**\brief Sets whether or not the pen is down.*/
-        void setpenstate(bool down);
+        void setpenstate(bool down){
+            pushState();
+            state->tracing = down;
+        }
 
         /**\brief Brings the pen up.*/
         inline void penup() {
@@ -3246,11 +4585,12 @@ namespace cturtle {
         void pencolor(Color c) {
             pushState();
             state->penColor = c;
+            updateParent(false, false);
         }
 
         /**\brief Returns the pen color; the color of the lines between movements.
          *\return The color of the pen.*/
-        Color pencolor() {
+        Color pencolor() const {
             return state->penColor;
         }
 
@@ -3263,14 +4603,41 @@ namespace cturtle {
 
         /**Returns the width of the pen line.
          *\return The width of the line, in pixels.*/
-        int width() {
+        int width() const{
             return state->penWidth;
         }
 
         /**\brief Draws this turtle on the specified canvas with the specified transform.
          *\param screenTransform The transform at which to draw the turtle objects.
          *\param canvas The canvas on which to draw this turtle.*/
-        void draw(const AffineTransform& screenTransform, Image& canvas);
+        void draw(const Transform& screenTransform, Image& canvas){
+            if (this->screen == nullptr)
+                return;
+
+            if (!state->visible)
+                return;
+
+            //Draw all lines queued during filling a shape.
+            //This is only populated when the turtle moves between a beginfill
+            //and endfill while the pen is down.
+            for (const Line& line : fillLines)
+                line.draw(screenTransform, canvas);
+
+            if (traveling && state->tracing) {
+                //Draw the "Travel-Line" when in the middle of the travelTo func
+                travelPoints[0] = screenTransform(travelPoints[0]);
+                travelPoints[1] = screenTransform(travelPoints[1]);
+                drawLine(canvas, travelPoints[0].x, travelPoints[0].y, travelPoints[1].x, travelPoints[1].y, state->penColor, state->penWidth);
+            }
+
+            //Add the extra rotate to start cursor facing right :)
+            const float cursorRot = this->screen->mode() == SM_STANDARD ? 1.5708f : -3.1416f;
+            Transform cursorTransform = screenTransform.copyConcatenate(*transform).rotate(cursorRot + state->cursorTilt);
+            state->cursor->fillColor = state->fillColor;
+            state->cursor->outlineWidth = 1;
+            state->cursor->outlineColor = state->penColor;
+            state->cursor->draw(cursorTransform, canvas);
+        }
 
         /**Sets this turtle to use angles measured in degrees.
          *\sa radians()*/
@@ -3289,26 +4656,67 @@ namespace cturtle {
         /**\brief Resets this turtle.
          * Moves this turtle home, resets all pen attributes,
          * and removes all previously added scene objects.*/
-        void reset();
+        void reset(){
+            //Reset objects, transforms, trace lines, state, etc.
+
+            //Note to self, clearing the list, appending a new transform,
+            //then reassigning the transform reference just didn't want to work.
+            //I have no idea why. Therefore, we're resetting it in the same
+            //manner we initially construct it.
+            stateStack = {PenState()};
+            state = &stateStack.back();
+
+            transform = &state->transform;
+            const auto numItems = objects.size();
+
+            if (screen != nullptr) {
+                //Re-assign cursor on reset, derived from parent screen.
+                state->cursor.reset(screen->shape("indented triangle").copy());
+                //Erase all objects
+                while (!objects.empty()) {
+                    screen->getScene().erase(objects.front());
+                    objects.pop_front();
+                }
+
+                //Alter cursor tilt and default transform
+                //when operating under SM_LOGO mode.
+                //This is to bring it up-to-par with Python's
+                //implementation of screen modes.
+                if (screen->mode() == SM_LOGO) {
+                    state->cursorTilt = (-1.5708f);
+                    transform->rotate(1.5708f);
+                }
+            }
+
+            updateParent(numItems > 0, false);
+        }
 
         /**Sets this turtles screen.*/
-        void setScreen(TurtleScreen* scr) {
+        void setScreen(AbstractTurtleScreen* scr) {
             screen = scr;
         }
 
         /**\brief Empty virtual destructor.*/
-        virtual ~Turtle() {
-        }
+        virtual ~Turtle() {}
     protected:
+        //a list of iterators that point to the parent screen's scene list.
+        //this list is in-order as they are created by this instance.
         std::list<std::list<SceneObject>::iterator> objects;
+        //the pen-state stack is, as its name might imply, the previous states
+        //of the pen owned by this turtle.
         std::list<PenState> stateStack = {PenState()};
-        std::list<std::pair<Line, Color>> fillLines;
-        //lines to be drawn to temp screen when filling to avoid invalidating screen
-        AffineTransform* transform = nullptr;
+        std::list<Line> fillLines;
+
+        //the current transform. This points to the topmost state's transform
+        //on the pen state stack.
+        Transform* transform = nullptr;
+        //the current state. This points directly to the topmost state
+        //on the pen state stack.
         PenState* state = nullptr;
 
-        /**These variables are used to draw the "travel" line when
-         * the turtle is traveling. (e.g, the line between where it's going*/
+        /* These variables are used to draw the "travel" line when
+         * the turtle is traveling. (e.g, the line between where it's going
+         * and where it's been)*/
         Point travelPoints[2];
         bool traveling = false;
 
@@ -3319,12 +4727,28 @@ namespace cturtle {
         Polygon fillAccum;
 
         /*Screen pointer. Assign before calling any other function!*/
-        TurtleScreen* screen = nullptr;
+        AbstractTurtleScreen* screen = nullptr;
 
-        /**Pushes a copy of the pen's state on the stack.*/
-        void pushState();
-        /**Pops the top of the pen's state stack.*/
-        bool popState();
+        /*Pushes a copy of the pen's state on the stack.*/
+        void pushState(){
+            if (stateStack.size() + 1 > undoStackSize)
+                stateStack.pop_front();
+
+            stateStack.push_back(stateStack.back()); //Push a copy of the back-most pen state.
+            state = &stateStack.back();
+            transform = &state->transform;
+            state->objectsBefore = objects.size();
+        }
+
+        /*Pops the top of the pen's state stack.*/
+        bool popState(){
+            if (stateStack.size() == 1)
+                return false;
+            stateStack.pop_back();
+            state = &stateStack.back();
+            transform = &state->transform;
+            return true;
+        }
 
         /**
          * \brief Internal function used to add geometry to the turtle screen.
@@ -3333,53 +4757,153 @@ namespace cturtle {
          * \param geom The geometry to add.
          * \return A boolean indicating if the geometry was added to the scene.
          */
-        bool pushGeom(const AffineTransform& t, Color color, IDrawableGeometry* geom);
+        bool pushGeometry(const Transform& t, AbstractDrawableObject* geom){
+            if (screen != nullptr) {
+                pushState();
+                screen->getScene().emplace_back(geom, t);
+                objects.push_back(std::prev(screen->getScene().end()));
+                return true;
+            }
+            return false;
+        }
 
         /**\brief Internal function used to add a stamp object to the turtle screen.
          *\param t The transform at which to draw the stamp.
          *\param color The color with which to draw the stamp.
          *\param geom The geometry of the stamp.*/
-        bool pushStamp(const AffineTransform& t, Color color, IDrawableGeometry* geom);
+        bool pushStamp(const Transform& t, AbstractDrawableObject* geom){
+            if (screen != nullptr) {
+                pushState();
+                const float cursorRot = this->screen->mode() == SM_STANDARD ? 1.5708f : -3.1416f;
+
+                Transform trans(t);
+                trans.rotate(cursorRot + state->cursorTilt);
+
+                geom->outlineWidth = 1;
+                geom->outlineColor = state->penColor;
+
+                screen->getScene().emplace_back(geom, trans, state->curStamp++);
+                SceneObject& obj = screen->getScene().back();
+
+                objects.push_back(std::prev(screen->getScene().end()));
+                return true;
+            }
+            return false;
+        }
 
         /**\brief Internal function used to add a text object to the turtle screen.
          *\param t The transform at which to draw the text.
          *\param color The color with which to draw the text.
-         *\param text The string to draw.*/
-        bool pushText(const AffineTransform& t, Color color, const std::string& text);
+         *\param font to use to draw the text.
+         *\param scale to draw the text at.
+         *\param text The string to draw.
+         *\param alignment The alignment of the text. Particularly useful for multi-line strings.*/
+        bool pushText(const Transform& t, Color color, const BitmapFont& font, const std::string& text, float scale = 1.0f, TextAlign alignment = TEXT_ALIGN_LEFT){
+            if (screen != nullptr) {
+                pushState();
+                screen->getScene().emplace_back(new Text(text, font, color, scale, alignment), t);
+                objects.push_back(std::prev(screen->getScene().end()));
+                return true;
+            }
+            return false;
+        }
 
         /**\brief Internal function used to add a trace line object to the turtle screen.
+         * Trace lines do NOT push a state. Their state is encompassed by movement,
+         * and these lines are only added when moving the turtle while the pen is down.
          *\param a Point A
          *\param b Point B*/
-        bool pushTraceLine(Point a, Point b);
+        bool pushTraceLine(Point a, Point b){
+            if (screen != nullptr) {
+                screen->getScene().emplace_back(new Line(a, b, state->penColor, state->penWidth), Transform());
+                objects.push_back(std::prev(screen->getScene().end()));
+                //Trace lines do NOT push a state->
+                //Their state is encompassed by movement,
+                //and these lines are only added when moving the turtle
+                //while the pen is down.
+                return true;
+            }
+            return false;
+        }
 
         /**Returns the speed, of any applicable animation
           in milliseconds, based off of this turtle's speed setting.*/
-        inline long int getAnimMS() {
-            return state->moveSpeed <= 0 ? 0 : long(((11.0f - state->moveSpeed) / 10.0f) * 300);
+        long int getAnimMS() {
+            //300 is the "scale" animations adhere to.
+            //The longest animation is 300 milliseconds, shortest is 0.
+            //This was an arbitrary choice, trying to match the speed of the Python implementation.
+            if(!screen->supports_live_animation() || state->moveSpeed < 0)
+                return 0;//no animation means no time spent animating...
+            return long((state->moveSpeed / 10.0f) * 300); //<----
         }
 
         /**Conditionally calls the parent screen's update function.*/
-        void updateParent(bool invalidate = false, bool input = true);
+        void updateParent(bool invalidate = false, bool input = true){
+            if (screen != nullptr)
+                screen->update(invalidate, input);
+        }
 
         /**Performs an interpolation, with animation,
          * between the source transform and the destination transform.
          * May push a new fill vertex if filling and pushing state, and applies appropriate
          * lines if the pen is down. Generally manages all state related
          * to movement as a side effect.*/
-        void travelBetween(const AffineTransform& from, const AffineTransform& to, bool pushState);
-        
+        void travelBetween(Transform src, const Transform& dest, bool doPushState){
+            if(dest == src)
+                return;
+
+            //Set the "traveling" state for screen drawing. Indicates when to draw travel lines (e.g, when pen is down).
+            traveling = true;
+
+            const float duration = static_cast<float>(getAnimMS());
+            if ((screen != nullptr ? !screen->isclosed() : false) && duration > 0) {//no point in animating with no screen
+                const unsigned long startTime = detail::epochTime();
+
+                float progress = 0;
+                while (progress < 1.0f) {
+                    const unsigned long curTime = detail::epochTime();
+
+                    transform->assign(src.lerp(dest, progress));
+                    travelPoints[0] = src.getTranslation();
+                    travelPoints[1] = transform->getTranslation();
+
+                    updateParent(false, false);
+
+                    progress = (static_cast<float>(curTime - startTime) / duration);
+                }
+            }
+
+            if(doPushState){
+                if (state->tracing && !state->filling) {
+                    pushTraceLine(src.getTranslation(), dest.getTranslation());
+                } else if (state->filling) {
+                    fillAccum.points.push_back(dest.getTranslation());
+                    if (state->tracing) {
+                        fillLines.push_back({src.getTranslation(), dest.getTranslation(), state->penColor, state->penWidth});
+                    }
+                }
+
+                transform->assign(src);
+                pushState();
+            }
+
+            transform->assign(dest);
+            traveling = false;
+            updateParent(false, false);
+        }
+
         /**Performs an interpolation, with animation,
          * between the current transform and the specified one.
          * Pushes a new fill vertex if filling, and applies appropriate
-         * lines if the pen is down.*/
-        void travelTo(const AffineTransform& dest){
+         * lines if the pen is down. Does push the state stack.*/
+        void travelTo(const Transform& dest){
             travelBetween(*transform, dest, true);
         }
 
         /**Performs an interpolation, with animation,
          * between the current transformation and the previous one.
-         * Will *not* pop state.
-         * ENSURE STACK IS BIG ENOUGH TO DO THIS BEFORE CALLING.*/
+         * Will *not* push the state stack.
+         * ENSURE STATE STACK IS BIG ENOUGH TO DO THIS BEFORE CALLING.*/
         void travelBack(){
             travelBetween(*transform, std::prev(stateStack.end(), 2)->transform, false);
         }
@@ -3388,47 +4912,342 @@ namespace cturtle {
         Turtle() {}
     };
 
-    /**\brief ScreenMode Enumeration, used to decide orientation of the drawing calls
-     *        on TurtleScreens.
-     *\sa TurtleScreen::mode(ScreenMode)*/
-    enum ScreenMode {
-        SM_STANDARD,
-        SM_LOGO//,
-        //        SM_WORLD
+#ifdef CTURTLE_HEADLESS
+    /*Used to output Base-64 GIF and HTML source for OfflineTurtleScreen.*/
+    inline std::string encodeFileBase64(const std::string& path){
+        std::ifstream file(path, std::ios::binary | std::ios::ate);
+        std::streamsize size = file.tellg();
+        file.seekg(0, std::ios::beg);
+
+        std::vector<unsigned char> buffer(size, 0);
+        file.read((char*)buffer.data(), size);
+        return base64::encode(buffer);
+    }
+
+    class OfflineTurtleScreen : public AbstractTurtleScreen{
+    public:
+        OfflineTurtleScreen(){
+            const int width = CTURTLE_HEADLESS_WIDTH;
+            const int height = CTURTLE_HEADLESS_HEIGHT;
+            canvas.assign(width, height, 1, 3);
+            canvas.fill(255);
+            isClosed = false;
+            gif = jo_gif_start(CTURTLE_HEADLESS_SAVEDIR, width, height,1, 31);
+            redraw(true);
+        }
+
+        ~OfflineTurtleScreen(){
+            bye();
+        }
+
+        void tracer(int countmax, unsigned int delayMS = 10){
+            redrawCounterMax = countmax;
+            delay(delayMS);
+            redraw();
+        }
+
+        int window_width() const{
+            return canvas.width();
+        }
+
+        int window_height() const{
+            return canvas.height();
+        }
+
+        Color bgcolor() const{
+            return backgroundColor;
+        }
+
+        void bgcolor(const Color& c){
+            backgroundColor = c;
+            redraw(true);
+        }
+
+        void mode(ScreenMode mode){
+            //Resets & re-orients all turtles.
+
+            curMode = mode;
+            for (Turtle* t : turtles) {
+                t->reset();
+            }
+        }
+
+        ScreenMode mode() const{
+            return curMode;
+        }
+
+        void clearscreen(){
+            //1) Delete all drawings and turtles
+            //2) White background
+
+            for (Turtle* turtle : turtles) {
+                turtle->setScreen(nullptr);
+            }
+
+            turtles.clear();
+            backgroundColor = Color("white");
+            curMode = SM_STANDARD;
+        }
+
+        void resetscreen(){
+            for (Turtle* turtle : turtles)
+                turtle->reset();
+        }
+
+        ivec2 screensize(Color& bg){
+            bg = backgroundColor;
+            return {canvas.width(), canvas.height()};
+        };
+        //code-smell from python->c++, considering separation of functionality
+
+        ivec2 screensize(){
+            return {canvas.width(), canvas.height()};
+        }
+
+        void update(bool invalidateDraw = false, bool processInput = false){
+            redraw(invalidateDraw);
+            //processInput is ignored. OfflineTurtleScreen does NOT support input.
+        }
+
+        void delay(unsigned int ms){
+            delayMS = ms;
+        }
+
+        unsigned int delay(){
+            return delayMS;
+        }
+
+        void bye() {
+            if(isClosed)
+                return;
+
+            /*finish up drawing if redraw counter hasn't been met*/
+            if(redrawCounter > 0 || redrawCounter >= redrawCounterMax){
+                tracer(1, delayMS);
+            }
+            
+            jo_gif_end(&gif);
+
+#ifndef CTURTLE_HEADLESS_NO_HTML
+            /*print base-64 encoding + HTML source*/
+            std::string imgCode = encodeFileBase64(CTURTLE_HEADLESS_SAVEDIR);
+
+            //See the following to understand why this was done:
+            //https://github.com/ericsonga/APCSAReview/blob/master/_sources/TurtleGraphics/turtleBasics.rst
+            //HTML can be captured for later output.
+            std::cout << "<img src=\'data:image/gif;base64,";
+            std::cout << imgCode;
+            std::cout << "\'/>";
+#endif
+
+            clearscreen();
+            isClosed = true;
+        }
+
+        Image& getcanvas(){
+            return canvas;
+        }
+
+        bool isclosed(){
+            return isClosed;
+        }
+
+        bool supports_live_animation() const{
+            return false;
+        }
+
+        virtual void redraw(bool invalidate = false){
+            if (isclosed())
+                return;
+            int fromBack = 0;
+            bool hasInvalidated = invalidate;
+
+            //Handle resizes.
+
+            if (lastTotalObjects <= objects.size()) {
+                fromBack = static_cast<int>(objects.size() - lastTotalObjects);
+            }
+
+            if (hasInvalidated) {
+                canvas.draw_rectangle(0, 0, canvas.width(), canvas.height(), backgroundColor.rgbPtr());
+                redrawCounter = 0;//Forced redraw due to canvas invalidation.
+            } else {
+                if(redrawCounterMax == 0){
+                    return;
+                }
+
+                redrawCounter++;
+
+                if (redrawCounter >= redrawCounterMax) {
+                    redrawCounter = 0;
+                } else {
+                    return;
+                }
+            }
+
+            auto latestIter = !hasInvalidated ? std::prev(objects.end(), fromBack) : objects.begin();
+
+            Transform screen = screentransform();
+            while (latestIter != objects.end()) {
+                SceneObject& object = *latestIter;
+                const Transform t(screen.copyConcatenate(object.transform));
+
+                object.geom->draw(t, canvas);
+
+                latestIter++;
+            }
+
+            if (canvas.width() != turtleComposite.width() || canvas.height() != turtleComposite.height()) {
+                turtleComposite.assign(canvas);
+            } else {
+                //This works off the assumption that drawImage is accelerated.
+                //There might be a more efficient way to do this, however.
+                turtleComposite.draw_image(0, 0, canvas);
+            }
+
+            for (Turtle* turt : turtles)
+                turt->draw(screen, turtleComposite);
+
+            lastTotalObjects = static_cast<int>(objects.size());
+
+            /* The following code takes the place of swapping the display buffer for the canvas,
+             * which is what the interactive mode does.*/
+
+            //This copy is NOT efficient.
+            //We should be able to take advantage of loop unrolling here
+            for(int x = 0; x < CTURTLE_HEADLESS_WIDTH; x++){
+                for(int y = 0; y < CTURTLE_HEADLESS_HEIGHT; y++){
+                    uint8_t* pixel = (&gifWriteBuffer[(y*CTURTLE_HEADLESS_WIDTH+x)*4]);
+
+                    pixel[0] = turtleComposite(x,y,0);
+                    pixel[1] = turtleComposite(x,y,1);
+                    pixel[2] = turtleComposite(x,y,2);
+                    pixel[3] = 255;
+                }
+            }
+
+            //GIF frames are measured in centiseconds, thus the /10 on the delayMS...
+            jo_gif_frame(&gif, gifWriteBuffer, delayMS / 10, true);
+        }
+
+        Transform screentransform() const{
+            return Transform().translate(canvas.width()/2, canvas.height()/2).scale(1, -1.0f);
+        }
+
+        void add(Turtle& turtle){
+            turtles.push_back(&turtle);
+        }
+
+        std::list<SceneObject>& getScene(){
+            return objects;
+        }
+
+        AbstractDrawableObject& shape(const std::string& name){
+            return shapes[name];
+        }
+        
+        /**
+         * Returns a read-only reference to the bitmap font with the specified name.
+         * For the case of OfflineTurtleScreen instances, this ALWAYS returns a reference
+         * to the default font.
+         * @param name to be given to the font. Irrelevant for the offline turtle screen.
+         * @return read-only BitmapFont reference to the default font.
+         */
+        const BitmapFont& font(const std::string& name) const{
+            return *defaultFont;
+        }
+    private:
+        /*this can be a constant allocated buffer.*/
+        uint8_t gifWriteBuffer[CTURTLE_HEADLESS_WIDTH * CTURTLE_HEADLESS_HEIGHT*4];
+        //allocate enough to hold width*height*4 (4 because RGBA).
+        //this fits into uint32_t type quite nicely. (8+8+8+8 bits, r+g+b+a) = 32
+
+        //This struct controls the writing of resulting GIFs.
+        jo_gif_t gif;
+
+        std::list<SceneObject> objects;
+        std::list<Turtle*>      turtles;
+
+        bool isClosed = true;
+        Image canvas;
+
+        //The turtle composite image.
+        //This image copies the canvas and has
+        //turtles drawn to it to avoid redrawing a "busy" canvas.
+        //Trace lines are also drawn on this when filling.
+        Image turtleComposite;
+
+        /**The total objects on screen the last time this screen was drawn.
+         * Used to keep track of newer scene objects for a speed improvement.*/
+        int lastTotalObjects = 0;
+
+        /**The background color of this TurtleScreen.*/
+        Color backgroundColor = Color("white");
+
+        //OfflineTurtleScreen has no background image.
+
+        /**The current screen mode.
+         *\sa mode(m)*/
+        ScreenMode curMode = SM_STANDARD;
+
+        /**Redraw delay, in milliseconds.*/
+        long int delayMS = 10;
+
+        /** These variables are used specifically in tracer settings.**/
+        /**Redraw Counter.*/
+        int redrawCounter = 0;
+        /**Redraw counter max.*/
+        int redrawCounterMax = 1;
+        
+        std::unique_ptr<BitmapFont> defaultFont = 
+                std::make_unique<BitmapFont>(
+                     decodeDefaultFont(), DEFAULT_FONT_ASCII_OFFSET,
+                     DEFAULT_FONT_GLYPH_WIDTH, DEFAULT_FONT_GLYPH_HEIGHT,
+                     DEFAULT_FONT_GLYPHS_X, DEFAULT_FONT_GLYPHS_Y);
     };
-    //I'm leaving out SM_WORLD. Adding it would really require more work than I have time for.
+
+    typedef OfflineTurtleScreen TurtleScreen;
+#else /*NOT DEFINED CTURTLE_HEADLESS*/
+    constexpr int SCREEN_DEFAULT_WIDTH = 800;
+    constexpr int SCREEN_DEFAULT_HEIGHT = 600;
+    constexpr char SCREEN_DEFAULT_TITLE[] = "CTurtle " CTURTLE_VERSION;
 
     /**
-     *  TurtleScreen
-     * Holds and maintains all facilities in relation to displaying
+     * \brief The InteractiveTurtleScreen class holds and maintains facilities in relation to displaying
      * turtles and consuming input events from users through callbacks.
      * This includes holding the actual data for a given scene after being
      * populated by Turtle. It layers draw calls in the order they are called,
      * independent of whatever Turtle object creates it.
-     *
      * \sa Turtle
      */
-    class TurtleScreen {
+    class InteractiveTurtleScreen : public AbstractTurtleScreen{
     public:
-
         /**Empty constructor.
          * Assigns an 800 x 600 pixel display with a title of "CTurtle".*/
-        TurtleScreen() : display(800, 600, "CTurtle", 0) {
-            display.set_normalization(0);
+        InteractiveTurtleScreen() : display(SCREEN_DEFAULT_WIDTH, SCREEN_DEFAULT_HEIGHT, SCREEN_DEFAULT_TITLE, 0) {
             canvas.assign(display);
             initEventThread();
             redraw(true);
+            fonts[DEFAULT_FONT] =
+                    std::make_unique<BitmapFont>(
+                            decodeDefaultFont(), DEFAULT_FONT_ASCII_OFFSET,
+                            DEFAULT_FONT_GLYPH_WIDTH, DEFAULT_FONT_GLYPH_HEIGHT,
+                            DEFAULT_FONT_GLYPHS_X, DEFAULT_FONT_GLYPHS_Y);
         }
 
         /**Title constructor.
          * Assigns an 800 x 600 pixel display with a specified title.
          *\param title The title to assign the display with.*/
-        TurtleScreen(const std::string& title) : display(800, 600) {
-            display.set_title(title.c_str());
-            display.set_normalization(0);
+        InteractiveTurtleScreen(const std::string& title) : display(SCREEN_DEFAULT_WIDTH, SCREEN_DEFAULT_HEIGHT, title.c_str(), 0) {
             canvas.assign(display);
             initEventThread();
             redraw(true);
+
+            fonts[DEFAULT_FONT] =
+                    std::make_unique<BitmapFont>(
+                            decodeDefaultFont(), DEFAULT_FONT_ASCII_OFFSET,
+                            DEFAULT_FONT_GLYPH_WIDTH, DEFAULT_FONT_GLYPH_HEIGHT,
+                            DEFAULT_FONT_GLYPHS_X, DEFAULT_FONT_GLYPHS_Y);
         }
 
         /**Width, height, and title constructor.
@@ -3437,23 +5256,30 @@ namespace cturtle {
          *\param width The width of the display, in pixels.
          *\param height The height of the display, in pixels.
          *\param title The title of the display.*/
-        TurtleScreen(int width, int height, const std::string& title = "CTurtle")
-        : display(width, height) {
+        InteractiveTurtleScreen(int width, int height, const std::string& title = SCREEN_DEFAULT_TITLE)
+                : display(width, height) {
             display.set_title(title.c_str());
             display.set_normalization(0);
             canvas.assign(display);
             initEventThread();
             redraw(true);
+
+            fonts[DEFAULT_FONT] =
+                    std::make_unique<BitmapFont>(
+                            decodeDefaultFont(), DEFAULT_FONT_ASCII_OFFSET,
+                            DEFAULT_FONT_GLYPH_WIDTH, DEFAULT_FONT_GLYPH_HEIGHT,
+                            DEFAULT_FONT_GLYPHS_X, DEFAULT_FONT_GLYPHS_Y);
         }
 
         /**Destructor. Calls "bye" function.*/
-        ~TurtleScreen() {
+        ~InteractiveTurtleScreen() {
             bye();
         }
 
         /**Sets an internal variable that dictates how many frames
          * are skipped between screen updates; higher numbers will
-         * speed up complex turtle drawings.
+         * speed up complex turtle drawings. Setting it to ZERO will
+         * COMPLETELY disable animation until this value changes.
          *\param countmax The value of the aforementioned variable.
          *\param delayMS This value is sent to function "delay".*/
         void tracer(int countmax, unsigned int delayMS = 10) {
@@ -3467,28 +5293,50 @@ namespace cturtle {
          * applied until it is removed.
          *\param color The background color.
          *\sa bgpic(image)*/
-        void bgcolor(const Color& color);
+        void bgcolor(const Color& color){
+            backgroundColor = color;
+            redraw(true);
+        }
 
         /**Returns the background color of the screen.
          *\return The background color of the screen.*/
-        Color bgcolor();
+        Color bgcolor() const{
+            return backgroundColor;
+        }
 
         /**\brief Sets the background image of the display.
          * Sets the background image. Please note that the background image
          * takes precedence over background color.
          *\param img The background image.*/
-        void bgpic(const Image& img);
+        void bgpic(const Image& img){
+            backgroundImage.assign(img);
+            backgroundImage.resize(window_width(), window_height());
+            redraw(true);
+        }
 
         /**Returns a const reference to the background image.*/
-        const Image& bgpic();
+        const Image& bgpic(){
+            return backgroundImage;
+        }
+
+        bool supports_live_animation() const{
+            return true;
+        }
 
         /**Sets the screen mode of this screen.
+         * Screen mode influences the initial heading added Turtles have,
+         * as well as the direction of rotations.
+         * This function brings ALL attached turtles to the home/default location.
          *\param mode The screen mode.
-         *\todo Refine this documentation.*/
-        void mode(ScreenMode mode);
+         */
+        void mode(ScreenMode mode){
+            curMode = mode;
+            for (Turtle* t : turtles)
+                t->home();
+        }
 
         /**Returns the screen mode of this screen.*/
-        ScreenMode mode() {
+        ScreenMode mode() const {
             return curMode;
         }
 
@@ -3497,7 +5345,30 @@ namespace cturtle {
          * Resets the background to plain white,
          * Clears all event bindings,
          */
-        void clearscreen();
+        void clearscreen(){
+            //1) Delete all drawings and turtles
+            //2) White background
+            //3) No background image
+            //4) No event bindings
+
+            for (Turtle* turtle : turtles) {
+                turtle->setScreen(nullptr);
+            }
+
+            turtles.clear();
+            backgroundColor = Color("white");
+            backgroundImage.assign();//assign with no parameters is deleting whatever contents it may have.
+            curMode = SM_STANDARD;
+
+            //Gotta do binding alterations under the cache's mutex lock.
+            eventCacheMutex.lock();
+            timerBindings.clear();
+            keyBindings[0].clear();
+            keyBindings[1].clear();
+            for (int i = 0; i < 3; i++)
+                mouseBindings[i].clear();
+            eventCacheMutex.unlock();
+        }
 
         /**Alias for clearscreen function
          *\sa clearscreen()*/
@@ -3506,7 +5377,10 @@ namespace cturtle {
         }
 
         /**Resets all turtles belonging to this screen to their original state->*/
-        void resetscreen();
+        void resetscreen(){
+            for (Turtle* turtle : turtles)
+                turtle->reset();
+        }
 
         /**Resets all turtles belonging to this screen to their original state->*/
         inline void reset() {
@@ -3515,38 +5389,82 @@ namespace cturtle {
 
         /**Returns the size of this screen, in pixels.
           Also returns the background color of the screen,
-          by assigning the input reference.*/
-        ivec2 screensize(Color& bg);
-
-        /**Returns the size of the screen, in pixels.*/
-        inline ivec2 screensize() {
-            Color temp;
-            return screensize(temp);
+          by assigning the input reference.*/ //code-smell from python->c++, considering separation of functionality
+        inline ivec2 screensize(Color& bg){
+            bg = backgroundColor;
+            return {display.screen_width(), display.screen_height()};
         }
 
-        /*Sets the world coordinates.*/
-        //        void setworldcoordinates(vec2 lowerLeft, vec2 upperRight);
-        //might just leave this function out
+        /**Returns the size of the screen, in pixels.*/
+        inline ivec2 screensize() { //see line above comment about code-smell
+            return {display.screen_width(), display.screen_height()};
+        }
 
         /**Updates the screen's graphics and input.
          *\param invalidateDraw Completely redraws the scene if true.
          *                      If false, only draws the newest geometry.
          *\param processInput A boolean indicating to process input.*/
-        void update(bool invalidateDraw = false, bool processInput = true);
+        void update(bool invalidateDraw = false, bool processInput = true){
+            /*Resize canvas when necessary.*/
+            if (display.is_resized()) {
+                display.resize();
+                invalidateDraw = true;
+            }
+            redraw(invalidateDraw);
+
+            if (processInput && !timerBindings.empty()) {
+                //Call timer bindings first.
+                uint64_t curTime = detail::epochTime();
+                for (auto& timer : timerBindings) {
+                    auto& func = std::get<0>(timer);
+                    uint64_t reqTime = std::get<1>(timer);
+                    uint64_t& lastCalled = std::get<2>(timer);
+
+                    if (curTime >= lastCalled + reqTime) {
+                        lastCalled = curTime;
+                        func();
+                    }
+                }
+            }
+
+            /**No events to process in the cache, or we're not processing it right now.*/
+            if (cachedEvents.empty() || !processInput)
+                return; //No events to process.
+
+            //lock event cache to avoid race conditions
+            eventCacheMutex.lock();
+
+            for (InputEvent& event : cachedEvents) {
+                if (event.type) {//process keyboard event
+                    KeyFunc& keyFunc = *reinterpret_cast<KeyFunc*> (event.cbPointer);
+                    keyFunc();
+                } else {//process mouse event
+                    MouseFunc& mFunc = *reinterpret_cast<MouseFunc*> (event.cbPointer);
+                    mFunc(event.mX, event.mY);
+                }
+            }
+
+            cachedEvents.clear();
+            eventCacheMutex.unlock();
+        }
 
         /**Sets the delay set between turtle commands.*/
-        void delay(unsigned int ms);
+        void delay(unsigned int ms){
+            delayMS = ms;
+        }
 
         /**Returns the delay set between screen swaps in milliseconds.*/
-        unsigned int delay();
+        unsigned int delay(){
+            return delayMS;
+        }
 
         /**Returns the width of the window, in pixels.*/
-        int window_width() {
+        int window_width() const {
             return display.window_width();
         }
 
         /**Returns the height of the window, in pixels.*/
-        int window_height() {
+        int window_height() const {
             return display.window_height();
         }
 
@@ -3564,11 +5482,27 @@ namespace cturtle {
         void mainloop() {
             while (!display.is_closed()) {
                 update(false, true);
+                std::this_thread::yield();//Yield repetitive loops on mainloop to avoid high-cpu usage.
             }
         }
 
         /**Resets and closes this display.*/
-        void bye();
+        void bye(){
+            if(redrawCounter > 0 || redrawCounter >= redrawCounterMax){
+                tracer(1, delayMS);
+            }
+
+            if (eventThread.get() != nullptr) {
+                killEventThread = true;
+                eventThread->join();
+                eventThread.reset(nullptr);
+            }
+
+            clearscreen();
+
+            if (!display.is_closed())
+                display.close();
+        }
 
         /**Returns the canvas image used by this screen.*/
         Image& getcanvas() {
@@ -3587,49 +5521,105 @@ namespace cturtle {
         }
 
         /**Draws all geometry from all child turtles and swaps this display.*/
-        void redraw(bool invalidate = false);
+        void redraw(bool invalidate = false){
+            if (isclosed())
+                return;
+            int fromBack = 0;
+            bool hasInvalidated = invalidate;
 
-        /**Returns the screen-level AffineTransform
+            //Handle resizes.
+            if (display.window_width() != canvas.width() || display.window_height() != canvas.height()) {
+                canvas.resize(display);
+                hasInvalidated = true;
+            }
+
+            if (lastTotalObjects <= objects.size()) {
+                fromBack = static_cast<int>(objects.size() - lastTotalObjects);
+            }
+
+            if (hasInvalidated) {
+                if(!backgroundImage.is_empty()) canvas.assign(backgroundImage);
+                else canvas.draw_rectangle(0, 0, canvas.width(), canvas.height(), backgroundColor.rgbPtr());
+
+                redrawCounter = 0;//Forced redraw due to canvas invalidation.
+            } else {
+                if(redrawCounterMax == 0)//tracer settings may disable rendering for a short time...
+                    return;
+                redrawCounter++;
+
+                if(redrawCounter >= redrawCounterMax)
+                    redrawCounter = 0;
+                else return;
+            }
+
+            //get the iterator pointing to the oldest scene object that hasn't been drawn yet
+            //if the scene has been invalidated, the latest object is the first one in the scene.
+            //otherwise, 
+            auto latestIter = !hasInvalidated ? std::prev(objects.end(), fromBack) : objects.begin();
+
+            Transform screen = screentransform();
+            while (latestIter != objects.end()) {
+                SceneObject& object = *latestIter;
+                const Transform t(screen.copyConcatenate(object.transform));
+                object.geom->draw(t, canvas);
+
+                latestIter++;
+            }
+
+            if (canvas.width() != turtleComposite.width() || canvas.height() != turtleComposite.height()) {
+                turtleComposite.assign(canvas);
+            } else {
+                //This works off the assumption that drawImage is accelerated.
+                //There might be a more efficient way to do this, however.
+                turtleComposite.draw_image(0, 0, canvas);
+            }
+
+            for (Turtle* turt : turtles)
+                turt->draw(screen, turtleComposite);
+
+            lastTotalObjects = static_cast<int>(objects.size());
+            display.display(turtleComposite);
+            detail::sleep(delayMS);
+        }
+
+        /**Returns the screen-level Transform
           of this screen. This is what puts the origin
           at the center of the screen rather than at
           at the top left, for example.*/
-        AffineTransform screentransform() {
-            AffineTransform t;
-            t.translate(canvas.width() / 2, canvas.height() / 2);
-            t.scale(1, -1.0f);
+        Transform screentransform() const {
             //Scale negatively on Y axis to match
             //Python's coordinate system.
             //without this scaling, top left is 0,0
             //instead of the bottom left (which is 0,Y without the scaling)
-            return t;
+            return Transform().translate(canvas.width()/2, canvas.height()/2).scale(1, -1.0f);
         }
 
         /**\brief Adds an additional "on press" key binding for the specified key.
          *\param func The function to call when the specified key is pressed.
          *\param key The specified key.*/
         void onkeypress(KeyFunc func, KeyboardKey key) {
-            cacheMutex.lock();
+            eventCacheMutex.lock();
             //determine if key list exists
             if (keyBindings[0].find(key) == keyBindings[0].end()) {
                 keyBindings[0][key] = std::list<KeyFunc>();
             }
             //then push it to the end of the list
             keyBindings[0][key].push_back(func);
-            cacheMutex.unlock();
+            eventCacheMutex.unlock();
         }
 
         /**\brief Adds an additional "on press" key binding for the specified key.
          *\param func The function to call when the specified key is released.
          *\param key The specified key.*/
         virtual void onkeyrelease(KeyFunc func, KeyboardKey key) {
-            cacheMutex.lock();
-            //determine if key list exists
+            eventCacheMutex.lock();
+            //determine if key list exists, if not, make one
             if (keyBindings[1].find(key) == keyBindings[1].end()) {
                 keyBindings[1][key] = std::list<KeyFunc>();
             }
             //then push it to the end of the list
             keyBindings[1][key].push_back(func);
-            cacheMutex.unlock();
+            eventCacheMutex.unlock();
         }
 
         /**\brief Simulates a key "on press" event.
@@ -3637,7 +5627,7 @@ namespace cturtle {
         void presskey(KeyboardKey key) {
             if (keyBindings[0].find(key) == keyBindings[0].end())
                 return;
-            for (KeyFunc& func : keyBindings[0][key]) {
+            for (const KeyFunc& func : keyBindings[0][key]) {
                 func();
             }
         }
@@ -3656,9 +5646,9 @@ namespace cturtle {
          *\param func The function to call when the specified button is clicked.
          *\param button The specified button.*/
         void onclick(MouseFunc func, MouseButton button = MOUSEB_LEFT) {
-            cacheMutex.lock();
+            eventCacheMutex.lock();
             mouseBindings[button].push_back(func);
-            cacheMutex.unlock();
+            eventCacheMutex.unlock();
         }
 
         /**Calls all previously added mouse button call-backs.
@@ -3666,11 +5656,13 @@ namespace cturtle {
          *\param y The Y coordinate at which to press.
          *\param button The button to simulate being pressed.*/
         void click(int x, int y, MouseButton button) {
+            eventCacheMutex.lock();
             for (MouseFunc& func : mouseBindings[button]) {
                 func(x, y);
             }
+            eventCacheMutex.unlock();
         }
-        
+
         /**\copydoc click(int, int, MouseButton)*/
         inline void click(const Point& pt, MouseButton button){
             click(pt.x, pt.y, button);
@@ -3686,10 +5678,13 @@ namespace cturtle {
         /**Binds the "bye" function to the onclick event for the left
          * mouse button.*/
         void exitonclick() {
+            //Catch up visually before entering event loop, when necessary.
+            if(redrawCounter > 0 || redrawCounter >= redrawCounterMax){
+                tracer(1, delayMS);
+            }
+
             onclick([&](int x, int y) {
                 display.close();
-                //bye() was having issues in a callback
-                //TODO: figure out why
             });
             mainloop();
         }
@@ -3710,8 +5705,27 @@ namespace cturtle {
          * @param name
          * @return
          */
-        IDrawableGeometry& shape(const std::string& name) {
+        AbstractDrawableObject& shape(const std::string& name) {
             return shapes[name];
+        }
+
+        /**
+         * Adds the specified bitmap font to the screen.
+         * It can be referenced later by its given name.
+         * @param name the name given to the font.
+         * @param font to add to the screen.
+         */
+        void addfont(const std::string& name, const BitmapFont& font){
+            fonts[name] = std::make_unique<BitmapFont>(font);
+        }
+
+        /**
+         * Returns a read-only reference to the bitmap font with the specified name.
+         * @param name to be given to the font.
+         * @return read-only BitmapFont reference.
+         */
+        const BitmapFont& font(const std::string& name) const{
+            return *fonts.at(name);
         }
     protected:
         /**The underlying display mechanism for a TurtleScreen.*/
@@ -3747,14 +5761,99 @@ namespace cturtle {
         /**Redraw Counter.*/
         int redrawCounter = 0;
         /**Redraw counter max.*/
-        int redrawCounterMax = 0;
+        int redrawCounterMax = 1;
 
         /**Initializes the underlying event thread.
          * This thread is cleanly managed and destroyed
          * when its owning object is destroyed.
          * The thread just populates the cachedEvents list,
          * so that events may be processed in the main thread.*/
-        void initEventThread();
+        void initEventThread(){
+            eventThread.reset(new std::thread([&]() {
+                //Mouse button states, between updates.
+                //Keeps track of release/press etc
+                //states for all three mouse buttons for isDown.
+                //*importantly, this allows us to avoid repeated events.
+                bool mButtons[3] = {false, false, false};
+                //Same thing for keys here.
+                //(this is a list of keys marked as being in a "down" state)
+                std::list<KeyboardKey> mKeys;
+
+                while (!display.is_closed() && !killEventThread) {
+                    //Updates all input.
+                    if (!display.is_event()) {
+                        std::this_thread::yield();
+                        continue;
+                    }
+
+                    eventCacheMutex.lock();
+
+                    Transform mouseOffset = screentransform();
+                    Point mousePos = {
+                            static_cast<int>((static_cast<float>(display.mouse_x()) - mouseOffset.getTranslateX()) * mouseOffset.getScaleX()),
+                            static_cast<int>((static_cast<float>(display.mouse_y()) - mouseOffset.getTranslateY()) * mouseOffset.getScaleY())
+                    };
+
+                    //Update mouse button input.
+                    const unsigned int button = display.button();
+                    bool buttons[3] = {
+                            static_cast<bool>(button & 1), //left
+                            static_cast<bool>(button & 2), //right
+                            static_cast<bool>(button & 4) //middle
+                    };
+
+                    for (int i = 0; i < 3; i++) {
+                        if (!(!mButtons[i] && buttons[i]))//is this button state "down"?
+                            continue; //if not, skip its processing loop.
+
+                        for (MouseFunc& func : mouseBindings[i]) {
+                            //append to the event cache.
+                            InputEvent e;
+                            e.type = false;
+                            e.mX = mousePos.x;
+                            e.mY = mousePos.y;
+                            e.cbPointer = reinterpret_cast<void*> (&func);
+                            cachedEvents.push_back(e);
+                        }
+                    }
+
+                    const auto& keys = NAMED_KEYS;
+
+                    //iterate through every key to determine its state,
+                    //then call the appropriate callbacks.
+                    for (const auto& keyPair : keys) {
+                        KeyboardKey key = keyPair.second;
+                        const bool lastDown = std::find(mKeys.begin(), mKeys.end(), key) != mKeys.end();
+                        const bool curDown = display.is_key((unsigned int) key);
+
+                        int state = -1;
+                        if (!lastDown && curDown) {
+                            //Key down.
+                            state = 0;
+                            mKeys.push_back(key);
+                        } else if (lastDown && !curDown) {
+                            //Key up.
+                            state = 1;
+                            mKeys.remove(key);
+                        } else continue; //skip on case where it was down and is down
+
+                        try {
+                            //will throw if no bindings available for key,
+                            //and that's perfectly fine, so we just silently catch
+                            auto& bindingList = keyBindings[state][key];
+                            for (auto& cb : bindingList) {
+                                cb();
+                            }
+                        } catch (...) {}
+                    }
+
+                    mButtons[0] = buttons[0];
+                    mButtons[1] = buttons[1];
+                    mButtons[2] = buttons[2];
+                    eventCacheMutex.unlock();
+                }
+            }));
+        }
 
         /**The scene list.*/
         std::list<SceneObject> objects;
@@ -3772,748 +5871,27 @@ namespace cturtle {
         bool killEventThread = false;
         /**The mutex which controls synchronization between the main
          * thread and the event thread.*/
-        std::mutex cacheMutex;
+        std::mutex eventCacheMutex;
 
         //this is an array. 0 for keyDown bindings, 1 for keyUp bindings.
         std::unordered_map<KeyboardKey, std::list<KeyFunc>> keyBindings[2] = {
-            {},
-            {}
+                {},
+                {}
         };
+        //similar, mouseb_left mouseb_middle mouseb_right bindings.
         std::list<MouseFunc> mouseBindings[3] = {
-            {},
-            {},
-            {}
+                {},
+                {},
+                {}
         };
+        //timer bindings, one function per originating time and delta.
         std::list<std::tuple<TimerFunc, uint64_t, uint64_t>> timerBindings;
 
-        //Default shapes.
-        std::unordered_map<std::string, Polygon> shapes = {
-            {"triangle",
-                Polygon{
-                    {0, 0},
-                    {-5, 5},
-                    {5, 5}}},
-            {"square",
-                Polygon{
-                    {-5, -5},
-                    {-5, 5},
-                    {5, 5},
-                    {5, -5}}},
-            {"indented triangle",
-                Polygon{
-                    //CCW
-                    {0, 0},
-                    {-5, 10},
-                    {0, 8},
-                    {5, 10}}},
-            {"arrow",
-                Polygon{
-                    {0, 0},
-                    {-5, 5},
-                    {-3, 5},
-                    {-3, 10},
-                    {3, 10},
-                    {3, 5},
-                    {5, 5}}}
-        };
+        //map of fonts. only "default" is initially populated.
+        std::unordered_map<std::string, std::unique_ptr<BitmapFont>> fonts;
+
     };
 
-    //SECTION: TURTLE & TURTLE SCREEN IMPLEMENTATION
-
-    void TurtleScreen::clearscreen() {
-        //1) Delete all drawings and turtles
-        //2) White background
-        //3) No background image
-        //4) No event bindings
-
-        for (Turtle* turtle : turtles) {
-            turtle->setScreen(nullptr);
-        }
-
-        turtles.clear();
-        backgroundColor = Color("white");
-        backgroundImage.assign();
-        curMode = SM_STANDARD;
-
-        //Gotta do binding alterations under the cache's mutex lock.
-        cacheMutex.lock();
-        timerBindings.clear();
-        keyBindings[0].clear();
-        keyBindings[1].clear();
-        for (int i = 0; i < 3; i++)
-            mouseBindings[i].clear();
-        cacheMutex.unlock();
-    }
-
-    void TurtleScreen::bgcolor(const Color& color) {
-        backgroundColor = color;
-        redraw(true);
-    }
-
-    Color TurtleScreen::bgcolor() {
-        return backgroundColor;
-    }
-
-    void TurtleScreen::bgpic(const Image& img) {
-        backgroundImage.assign(img);
-        backgroundImage.resize(window_width(), window_height());
-        redraw(true);
-    }
-
-    const Image& TurtleScreen::bgpic() {
-        return backgroundImage;
-    }
-
-    void TurtleScreen::mode(ScreenMode mode) {
-        //Resets & re-orients all turtles.
-
-        curMode = mode;
-        for (Turtle* t : turtles) {
-            t->reset();
-        }
-    }
-
-    void TurtleScreen::resetscreen() {
-        for (Turtle* turtle : turtles) {
-            turtle->reset();
-        }
-    }
-
-    ivec2 TurtleScreen::screensize(Color& bg) {
-        bg = backgroundColor;
-        return { display.screen_width(), display.screen_height()};
-    }
-
-    void TurtleScreen::update(bool invalidateDraw, bool input) {
-        /*Resize canvas.*/
-        if (display.is_resized()) {
-            display.resize();
-            invalidateDraw = true;
-        }
-        redraw(invalidateDraw);
-
-        if (input && !timerBindings.empty()) {
-            //Call timer bindings first.
-            uint64_t curTime = detail::epochTime();
-            for (auto& timer : timerBindings) {
-                auto& func = std::get<0>(timer);
-                uint64_t reqTime = std::get<1>(timer);
-                uint64_t& lastCalled = std::get<2>(timer);
-
-                if (curTime >= lastCalled + reqTime) {
-                    lastCalled = curTime;
-                    func();
-                }
-            }
-        }
-
-        /**No events to process in the cache, or we're not processing it right now.*/
-        if (cachedEvents.empty() || !input)
-            return; //No events to process.
-
-        cacheMutex.lock();
-
-        for (InputEvent& event : cachedEvents) {
-            if (event.type) {//process keyboard event
-                KeyFunc& keyFunc = *reinterpret_cast<KeyFunc*> (event.cbPointer);
-                keyFunc();
-            } else {//process mouse event
-                MouseFunc& mFunc = *reinterpret_cast<MouseFunc*> (event.cbPointer);
-                mFunc(event.mX, event.mY);
-            }
-        }
-
-        cachedEvents.clear();
-        cacheMutex.unlock();
-    }
-
-    void TurtleScreen::delay(unsigned int ms) {
-        delayMS = ms;
-    }
-
-    unsigned int TurtleScreen::delay() {
-        return static_cast<unsigned int>(delayMS);
-    }
-
-    void TurtleScreen::bye() {
-        if (eventThread.get() != nullptr) {
-            killEventThread = true;
-            eventThread->join();
-            eventThread.reset(nullptr);
-        }
-
-        clearscreen();
-
-        if (!display.is_closed())
-            display.close();
-    }
-
-    void TurtleScreen::redraw(bool invalidate) {
-        if (isclosed())
-            return;
-        int fromBack = 0;
-        bool hasInvalidated = invalidate;
-
-        //Handle resizes.
-        if (display.window_width() != canvas.width() || display.window_height() != canvas.height()) {
-            canvas.resize(display);
-            hasInvalidated = true;
-        }
-
-        if (lastTotalObjects != objects.size()) {
-            if (lastTotalObjects > objects.size()) {
-                //invalidate; size of objects has changed.. 
-                //it can check this case automatically.
-                //all other cases which cause invalidation
-                //must call this function with the first param
-                //set to true to force invalidation.
-                hasInvalidated = true;
-            } else {
-                fromBack = static_cast<int>(objects.size() - lastTotalObjects);
-            }
-        };
-
-        if (hasInvalidated) {
-            if (!backgroundImage.is_empty()) {
-                canvas.assign(backgroundImage);
-            } else {
-                canvas.draw_rectangle(0, 0, canvas.width(), canvas.height(), backgroundColor.rgbPtr());
-            }
-        } else {
-            if (redrawCounter >= redrawCounterMax) {
-                redrawCounter = 0;
-            } else {
-                redrawCounter++;
-                return;
-            }
-        }
-
-        auto latestIter = !hasInvalidated ? std::prev(objects.end(), fromBack) : objects.begin();
-
-        AffineTransform screen = screentransform();
-        while (latestIter != objects.end()) {
-            SceneObject& object = *latestIter;
-            AffineTransform t(screen.copyConcatenate(object.transform));
-            IDrawableGeometry* geom = object.geom.get() ? object.geom.get() : object.unownedGeom;
-
-            if (geom != nullptr) {
-                geom->draw(t, canvas, object.fillColor, object.outlineWidth, object.outlineColor);
-            } else if (!object.text.empty()) {
-                //Draw text
-                Point trans = t.getTranslation();
-                canvas.draw_text(trans.x, trans.y, object.text.c_str(), object.fillColor.rgbPtr());
-            }
-
-            latestIter++;
-        }
-
-        if (canvas.width() != turtleComposite.width() || canvas.height() != canvas.height()) {
-            turtleComposite.assign(canvas);
-        } else {
-            //This works off the assumption that drawImage is accelerated.
-            //There might be a more efficient way to do this, however.
-            turtleComposite.draw_image(0, 0, canvas);
-        }
-
-        for (Turtle* turt : turtles) {
-            turt->draw(screen, turtleComposite);
-        }
-
-        lastTotalObjects = static_cast<int>(objects.size());
-        display.display(turtleComposite);
-        detail::sleep(delayMS);
-    }
-
-    void TurtleScreen::initEventThread() {
-        eventThread.reset(new std::thread([&]() {
-            //Mouse button states, between updates.
-            //Keeps track of release/press etc
-            //states for all three mouse buttons for isDown.
-            //*importantly, this allows us to avoid repeated events.
-            bool mButtons[3] = {false, false, false};
-            //Same thing for keys here.
-            //(this is a list of keys marked as being in a "down" state)
-            std::list<KeyboardKey> mKeys;
-
-            while (!display.is_closed() && !killEventThread) {
-                //Updates all input.
-                if (!display.is_event()) {
-                    std::this_thread::yield();
-                    continue;
-                }
-
-                cacheMutex.lock();
-
-                AffineTransform mouseOffset = screentransform();
-                Point mousePos = {
-                    static_cast<int>((static_cast<float>(display.mouse_x()) - mouseOffset.getTranslateX()) * mouseOffset.getScaleX()),
-                    static_cast<int>((static_cast<float>(display.mouse_y()) - mouseOffset.getTranslateY()) * mouseOffset.getScaleY())
-                };
-
-                //Update mouse button input.
-                const unsigned int button = display.button();
-                bool buttons[3] = {
-                    button & 1, //left
-                    button & 2, //right
-                    button & 4 //middle
-                };
-
-                for (int i = 0; i < 3; i++) {
-                    if (!(!mButtons[i] && buttons[i]))//is this button state "down"?
-                        continue; //if not, skip its processing loop.
-
-                        for (MouseFunc& func : mouseBindings[i]) {
-                            //append to the event cache.
-                            InputEvent e;
-                            e.type = false;
-                            e.mX = mousePos.x;
-                            e.mY = mousePos.y;
-                            e.cbPointer = reinterpret_cast<void*> (&func);
-                            cachedEvents.push_back(e);
-                        }
-                }
-
-                const auto& keys = NAMED_KEYS;
-
-                //iterate through every key to determine its state,
-                //then call the appropriate callbacks.
-                for (const auto& keyPair : keys) {
-                    KeyboardKey key = keyPair.second;
-                            const bool lastDown = std::find(mKeys.begin(), mKeys.end(), key) != mKeys.end();
-                            const bool curDown = display.is_key((unsigned int) key);
-
-                            int state = -1;
-                    if (!lastDown && curDown) {
-                        //Key down.
-                        state = 0;
-                        mKeys.push_back(key);
-                    } else if (lastDown && !curDown) {
-                        //Key up.
-                        state = 1;
-                        mKeys.remove(key);
-                    } else continue; //skip on case where it was down and is down
-                    
-                    try {
-                        //will throw if no bindings available for key,
-                        //and that's perfectly fine, so we just silently catch
-                        auto& bindingList = keyBindings[state][key];
-                        for (auto& cb : bindingList) {
-                            cb();
-                        }
-                    } catch (...) {}
-                }
-
-                mButtons[0] = buttons[0];
-                mButtons[1] = buttons[1];
-                mButtons[2] = buttons[2];
-                cacheMutex.unlock();
-            }
-        }));
-    }
-
-    //SECTION: TURTLE IMPLEMENTATION
-
-    Turtle::Turtle(TurtleScreen& scr) {
-        screen = &scr;
-        screen->add(*this);
-        reset();
-    }
-
-    //write
-
-    void Turtle::write(const std::string& text) {
-        pushText(*transform, state->fillColor, text);
-        updateParent(false, false);
-    }
-
-    //Stamps
-
-    int Turtle::stamp() {
-        pushStamp(*transform, state->fillColor, state->cursor);
-        return state->curStamp;
-    }
-
-    void Turtle::clearstamp(int stampid) {
-        auto iter = objects.begin(); //iterator which holds an iterator to the screen's scene list.
-
-        while (iter != objects.end()) {
-            auto& objIter = *iter;
-            if (objIter->stamp && objIter->stampid == stampid) {
-                break;
-            }
-            iter++;
-        }
-
-        if (iter != objects.end()) {
-            objects.erase(iter);
-
-            if (screen != nullptr) {
-                screen->getScene().erase(*iter);
-            }
-        }
-    }
-
-    void Turtle::clearstamps(int stampid) {
-        typedef decltype(objects.begin()) iter_t;
-
-        std::list<iter_t> removals;
-
-        iter_t iter = objects.begin();
-        while (iter != objects.end()) {
-            auto& objIter = *iter;
-            if (stampid < 0 ? objIter->stamp : (objIter->stamp && objIter->stampid <= stampid)) {
-                removals.push_back(iter);
-            }
-            iter++;
-        }
-
-        for (iter_t& iter : removals) {
-            screen->getScene().erase(*iter);
-            objects.erase(iter);
-        }
-    }
-
-    void Turtle::shape(const std::string& name) {
-        pushState();
-        state->cursor = &(screen->shape(name));
-        updateParent(false, false);
-    }
-
-    //Movement
-
-    void Turtle::forward(int pixels) {
-        if (screen == nullptr)
-            return;
-        travelTo(AffineTransform(*transform).forward(static_cast<float>(pixels)));
-    }
-
-    void Turtle::backward(int pixels) {
-        if (screen == nullptr)
-            return;
-        travelTo(AffineTransform(*transform).backward(static_cast<float>(pixels)));
-    }
-
-    void Turtle::right(float amt) {
-        amt = state->angleMode ? -amt : -toRadians(amt);
-        //Flip angle orientation based on screen mode.
-        travelTo(AffineTransform(*transform).rotate(amt));
-    }
-
-    void Turtle::left(float amt) {
-        amt = state->angleMode ? amt : toRadians(amt);
-        //Flip angle orientation based on screen mode.
-        travelTo(AffineTransform(*transform).rotate(amt));
-    }
-
-    void Turtle::setheading(float amt) {
-        //Swap to correct unit if necessary.
-        amt = state->angleMode ? amt : toRadians(amt);
-        //Flip angle orientation based on screen mode.
-        amt = (screen != nullptr) ? screen->mode() == SM_STANDARD ? amt : -amt : amt;
-        travelTo(AffineTransform(*transform).setRotation(amt));
-    }
-    
-    float Turtle::towards(int x, int y){
-        float amt = std::atan2(static_cast<float>(x) - transform->getTranslateX(), static_cast<float>(y) - transform->getTranslateY());
-        //convert to degrees if necessary.
-        amt = state->angleMode ? amt : toDegrees(amt);
-        return amt;
-    }
-
-    void Turtle::goTo(int x, int y) {//had to change due to C++ keyword "goto"
-        travelTo(AffineTransform(*transform).setTranslation(x, y));
-    };
-
-    void Turtle::setx(int x) {
-        travelTo(AffineTransform(*transform).setTranslationX(x));
-    }
-
-    void Turtle::sety(int y) {
-        travelTo(AffineTransform(*transform).setTranslationY(y));
-    }
-
-    void Turtle::shift(int x, int y) {
-        travelTo(AffineTransform(*transform).translate(x, y));
-    }
-
-    void Turtle::home() {
-        travelTo(AffineTransform());
-    }
-
-    //Drawing & Misc.
-
-    void Turtle::reset() {
-        //Reset objects, transforms, trace lines, state, etc.
-
-        //Note to self, clearing the list, appending a new transform,
-        //then reassigning the transform reference just didn't want to work.
-        //I have no idea why. Therefore, we're resetting it in the same
-        //manner we initially construct it.
-        stateStack = {PenState()};
-        state = &stateStack.back();
-
-        transform = &state->transform;
-
-        if (screen != nullptr) {
-            //Re-assign cursor on reset, derived from parent screen.
-            state->cursor = &screen->shape("indented triangle");
-            //Erase all objects
-            while (!objects.empty()) {
-                screen->getScene().erase(objects.front());
-                objects.pop_front();
-            }
-
-            //Alter cursor tilt and default transform
-            //when operating under SM_LOGO mode.
-            //This is to bring it up-to-par with Python's
-            //implementation of screen modes.
-            //I can't decide if this solution is too "hacky" or not;
-            //it solves the problem, but I could have done it differently.
-            if (screen->mode() == SM_LOGO) {
-                state->cursorTilt = (-1.5708f);
-                transform->rotate(1.5708f);
-            }
-        }
-
-        updateParent(true, false);
-    }
-
-    //Conditional parent update.
-
-    void Turtle::updateParent(bool invalidate, bool input) {
-        if (screen != nullptr)
-            screen->update(invalidate, input);
-    }
-
-    void Turtle::circle(int radius, int steps, Color color) {
-        pushGeom(*transform, color, new Circle(radius, steps));
-        updateParent();
-    }
-
-    void Turtle::fill(bool val) {
-        if (state->filling && !val) {
-            //Add the fill polygon
-            screen->getScene().emplace_back(new Polygon(fillAccum.points), state->fillColor, AffineTransform());
-            objects.push_back(std::prev(screen->getScene().end(), 1));
-
-            //Add all trace lines created when tracing out the fill polygon.
-            if (state->filling && !fillLines.empty()) {
-                for (const auto& lineInfo : fillLines) {
-                    screen->getScene().emplace_back(new Line(lineInfo.first), lineInfo.second, AffineTransform());
-                    objects.push_back(std::prev(screen->getScene().end(), 1));
-                }
-                fillLines.clear();
-            }
-
-            fillAccum.points.clear();
-            updateParent(false, false);
-            //trace line geometry in the screen's scene list.
-        }
-        state->filling = val;
-    }
-
-    void Turtle::draw(const AffineTransform& screen, Image& canvas) {
-        if (this->screen == nullptr || (!state->visible && !state->tracing))
-            return;
-
-        if (state->visible) {
-            //Draw all lines queued during filling a shape.
-            //This is only populated when the turtle moves between a beginfill
-            //and endfill while the pen is down.
-            for (auto& lineVal : fillLines) {
-                Line& line = lineVal.first;
-                Color& color = lineVal.second;
-                line.draw(screen, canvas, color, 0, Color());
-            }
-
-            if (traveling && state->tracing) {
-                //Draw the "Travel-Line" when in the middle of the travelTo func
-                travelPoints[0] = screen(travelPoints[0]);
-                travelPoints[1] = screen(travelPoints[1]);
-
-                drawLine(canvas, travelPoints[0].x, travelPoints[0].y, travelPoints[1].x, travelPoints[1].y, state->penColor, state->penWidth);
-            }
-            //Add the extra rotate to start cursor facing right :)
-            float cursorRot = this->screen->mode() == SM_STANDARD ? 1.5708f : -3.1416f;
-            AffineTransform cursorTransform = screen.copyConcatenate(*transform).rotate(cursorRot + state->cursorTilt);
-            state->cursor->draw(cursorTransform, canvas, state->fillColor, 1, state->penColor);
-        }
-    }
-
-    bool Turtle::undo() {
-        const unsigned long int totalBefore = state->objectsBefore;
-
-        if (stateStack.size() >= 2)
-            travelBack(); //Travel back if stack size >= 2
-
-        //If we can't pop the state, break early.
-        //TODO: Remove features as they're undone, rather than at the end of the traveling animation.
-        if (!popState()) {
-            return false;
-        }
-
-        auto begin = std::prev(objects.end(), (totalBefore - state->objectsBefore));
-        auto iter = begin;
-
-        while (iter != objects.end()) {
-            screen->getScene().erase(*iter);
-            iter++;
-        }
-
-        objects.erase(begin, objects.end());
-
-        //Will invalidate due to object removal.
-        updateParent(true, false);
-        return true;
-    }
-
-    void Turtle::tilt(float amt) {
-        amt = state->angleMode ? amt : toRadians(amt);
-        //Flip angle orientation based on screen mode.
-        amt = screen->mode() == SM_STANDARD ? amt : -amt;
-        pushState();
-        state->cursorTilt += amt;
-        updateParent(false, false);
-    }
-
-    void Turtle::setshowturtle(bool val) {
-        pushState();
-        state->visible = val;
-        updateParent(false, false);
-    }
-
-    void Turtle::setpenstate(bool down) {
-        pushState();
-        state->tracing = down;
-    }
-    
-    void Turtle::travelBetween(const AffineTransform& src, const AffineTransform& dest, bool doPushState){
-        if(dest == src)
-            return;
-        
-        traveling = true;
-        
-        AffineTransform begin;
-        begin.assign(src);
-        
-        if (screen != nullptr ? !screen->isclosed() : false) {//no point in animating with no screen
-            auto& scene = this->screen->getScene();
-            const float duration = static_cast<float>(getAnimMS());
-            const unsigned long startTime = detail::epochTime();
-
-            AffineTransform start;
-            start.assign(*transform);
-
-            float progress = duration == 0 ? 1 : 0;
-            while (progress < 1.0f) {
-                //We use the time between animation frames to smooth out
-                //our animations, making them take the same amount of time
-                //regardless of how it's performance.
-                unsigned long curTime = detail::epochTime();
-                
-                transform->assign(start.lerp(dest, progress));
-                travelPoints[0] = begin.getTranslation();
-                travelPoints[1] = transform->getTranslation();
-                screen->redraw();
-
-                progress = (static_cast<float>(curTime - startTime) / duration);
-            }
-        }
-        
-        if(doPushState){
-            //Contents of PushCurrent moved here because every function
-            //that called this one called PushCurrent immediately after it.
-            if (state->tracing && !state->filling) {
-                pushTraceLine(begin.getTranslation(), dest.getTranslation());
-            } else if (state->filling) {
-                fillAccum.points.push_back(dest.getTranslation());
-                if (state->tracing) {
-                    fillLines.push_back({
-                        {begin.getTranslation(), dest.getTranslation(), state->penWidth}, state->penColor
-                    });
-                }
-            }
-
-            transform->assign(begin);
-            pushState();
-            transform->assign(dest);
-        }else{
-            state->transform.assign(dest);
-        }
-        
-        traveling = false;
-        updateParent(false, false);
-    }
-
-    void Turtle::pushState() {
-        if (stateStack.size() + 1 > undoStackSize)
-            stateStack.pop_front();
-        // stateStack.push_back(PenState(state));
-        // This fixes an odd issue in MSVC where the cursor's shape pointer
-        // gets deleted for no obvious reason.
-        stateStack.push_back(stateStack.back()); //Push a copy of the back-most pen state->
-        state = &stateStack.back();
-        transform = &state->transform;
-        state->objectsBefore = objects.size();
-    }
-
-    bool Turtle::popState() {
-        if (stateStack.size() == 1)
-            return false;
-        stateStack.pop_back();
-        state = &stateStack.back();
-        transform = &state->transform;
-        return true;
-    }
-
-    bool Turtle::pushGeom(const AffineTransform& t, Color color, IDrawableGeometry* geom) {
-        if (screen != nullptr) {
-            pushState();
-            screen->getScene().emplace_back(geom, color, t);
-            objects.push_back(std::prev(screen->getScene().end()));
-            return true;
-        }
-        return false;
-    }
-
-    bool Turtle::pushStamp(const AffineTransform& t, Color color, IDrawableGeometry* geom) {
-        if (screen != nullptr) {
-            pushState();
-            const float cursorRot = this->screen->mode() == SM_STANDARD ? 1.5708f : -3.1416f;
-
-            AffineTransform trans(t);
-            trans.rotate(cursorRot + state->cursorTilt);
-
-            screen->getScene().emplace_back(geom, color, trans, state->curStamp++);
-            SceneObject& obj = screen->getScene().back();
-            obj.outlineWidth = 1;
-            obj.outlineColor = state->penColor;
-
-            objects.push_back(std::prev(screen->getScene().end()));
-            return true;
-        }
-        return false;
-    }
-
-    bool Turtle::pushText(const AffineTransform& t, Color color, const std::string& text) {
-        if (screen != nullptr) {
-            pushState();
-            screen->getScene().emplace_back(text, color, t);
-            objects.push_back(std::prev(screen->getScene().end()));
-            return true;
-        }
-        return false;
-    }
-
-    bool Turtle::pushTraceLine(Point a, Point b) {
-        if (screen != nullptr) {
-            screen->getScene().emplace_back(new Line(a, b, state->penWidth), state->penColor, AffineTransform());
-            objects.push_back(std::prev(screen->getScene().end()));
-            //Trace lines do NOT push a state->
-            //Their state is encompassed by movement,
-            //and these lines are only added when moving anyway.
-            return true;
-        }
-        return false;
-    }
+    typedef InteractiveTurtleScreen TurtleScreen;
+#endif /*CTURTLE_HEADLESS*/
 }
